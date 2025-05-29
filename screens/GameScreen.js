@@ -9,6 +9,7 @@ import {
   StatusBar,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -32,8 +33,17 @@ const TILT_THRESHOLD = 0.7; // Decreased threshold for more sensitivity
 const DEBOUNCE_TIME = 1000; // ms
 const COUNTDOWN_DURATION = 1000;
 
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const GameScreen = ({ route, navigation }) => {
-  const { items = [], category = '', timeLimit = 60 } = route.params;
+  const { items = [], category = '', timeLimit = 60, isCustomCategory = false } = route.params;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -41,11 +51,13 @@ const GameScreen = ({ route, navigation }) => {
   const [countdownText, setCountdownText] = useState('Place on Forehead');
   const [score, setScore] = useState({ correct: 0, skipped: 0 });
   const [processedItems, setProcessedItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
+  const [gameItems, setGameItems] = useState(items);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Refs
   const timerRef = useRef(null);
@@ -71,11 +83,17 @@ const GameScreen = ({ route, navigation }) => {
 
   // Process items
   useEffect(() => {
-    if (items.length > 0) {
-      setProcessedItems(items.map(item => ({ text: item, status: 'pending' })));
+    if (gameItems.length > 0) {
+      setProcessedItems(gameItems.map(item => ({ text: item, status: 'pending' })));
+      setIsLoading(false);
+    } else if (isCustomCategory) {
+      // For custom categories, we start in preview mode (no items yet)
+      setIsLoading(false);
+    } else {
+      // For default categories, items should already be provided
       setIsLoading(false);
     }
-  }, [items]);
+  }, [gameItems, isCustomCategory]);
 
   // Timer effect
   useEffect(() => {
@@ -257,7 +275,7 @@ const GameScreen = ({ route, navigation }) => {
   };
 
   const nextCard = () => {
-    if (currentIndex < items.length - 1) {
+    if (currentIndex < gameItems.length - 1) {
       // Fade out current word
       wordOpacity.value = withSequence(
         withTiming(0, { duration: 150 }),
@@ -275,7 +293,58 @@ const GameScreen = ({ route, navigation }) => {
 
   const startGame = () => {
     console.log('startGame called');
-    startCountdown();
+    if (isCustomCategory && gameItems.length === 0) {
+      // For custom categories, call API first
+      handleStartGame();
+    } else {
+      // For default categories or when items are already loaded, start countdown
+      startCountdown();
+    }
+  };
+
+  const handleStartGame = async () => {
+    console.log('handleStartGame called for custom category:', category);
+    setIsGenerating(true);
+    try {
+      const response = await fetch('https://charaids.onrender.com/generate-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: category.trim(),
+          count: 35,
+        }),
+      });
+
+      console.log('API response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API response data:', data);
+      
+      if (!data.items || !Array.isArray(data.items)) {
+        throw new Error('Invalid response format');
+      }
+
+      console.log('Setting game items and starting countdown');
+      setGameItems(shuffleArray(data.items));
+      setIsGenerating(false);
+      // Start countdown after items are loaded
+      setTimeout(() => {
+        startCountdown();
+      }, 500);
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert(
+        'Error',
+        'The server is taking longer than expected. Please try again in a moment.',
+        [{ text: 'OK' }]
+      );
+      setIsGenerating(false);
+    }
   };
 
   const endGame = async () => {
@@ -296,7 +365,7 @@ const GameScreen = ({ route, navigation }) => {
     navigation.navigate('Result', {
       score: score,
       category: category,
-      items: items
+      items: gameItems
     });
   };
 
@@ -334,6 +403,21 @@ const GameScreen = ({ route, navigation }) => {
       <LinearGradient colors={COLORS.gradient.primary} style={styles.container}>
         <LoadingDeck />
       </LinearGradient>
+    );
+  }
+
+  if (isGenerating) {
+    console.log('Rendering generating deck animation');
+    return (
+      <View style={{ flex: 1 }}>
+        <StatusBar hidden />
+        <LinearGradient
+          colors={COLORS.gradient.primary}
+          style={[styles.container, styles.loadingContainer]}
+        >
+          <LoadingDeck />
+        </LinearGradient>
+      </View>
     );
   }
 
@@ -403,7 +487,7 @@ const GameScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
-          <Text style={styles.wordText}>{items[currentIndex]}</Text>
+          <Text style={styles.wordText}>{gameItems[currentIndex]}</Text>
         </Animated.View>
 
         <View style={styles.gameFooter}>
@@ -677,6 +761,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: COLORS.text,
     opacity: 0.8,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
   },
 });
 
