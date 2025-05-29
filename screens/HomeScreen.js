@@ -40,7 +40,6 @@ const shuffleArray = (array) => {
 
 const HomeScreen = ({ navigation }) => {
   const [category, setCategory] = useState('');
-  const [loading, setLoading] = useState(false);
   const [selectedTime, setSelectedTime] = useState(60);
   const [showTimeSelect, setShowTimeSelect] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -143,8 +142,12 @@ const HomeScreen = ({ navigation }) => {
   }));
 
   const handleCustomCategorySubmit = () => {
+    console.log('handleCustomCategorySubmit called with category:', category);
     if (category.trim()) {
+      console.log('Showing time select screen');
       showTimeSelectScreen();
+    } else {
+      console.log('No category entered, not showing time select');
     }
   };
 
@@ -157,8 +160,13 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleStartGame = async () => {
-    if (!category.trim()) return;
+    console.log('handleStartGame called with category:', category);
+    if (!category.trim()) {
+      console.log('No category provided, returning early');
+      return;
+    }
 
+    console.log('Starting API call for category:', category.trim());
     setIsGenerating(true);
     try {
       const response = await fetch('https://charaids.onrender.com/generate-list', {
@@ -172,16 +180,19 @@ const HomeScreen = ({ navigation }) => {
         }),
       });
 
+      console.log('API response status:', response.status);
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('API response data:', data);
       
       if (!data.items || !Array.isArray(data.items)) {
         throw new Error('Invalid response format');
       }
 
+      console.log('Navigating to Game with items:', data.items.length);
       navigation.navigate('Game', {
         items: shuffleArray(data.items),
         category: category,
@@ -248,9 +259,9 @@ const HomeScreen = ({ navigation }) => {
                     !category.trim() && styles.playButtonDisabled
                   ]}
                   onPress={handleCustomCategorySubmit}
-                  disabled={loading || !category.trim()}
+                  disabled={isGenerating || !category.trim()}
                 >
-                  {loading ? (
+                  {isGenerating ? (
                     <ActivityIndicator color={COLORS.text} />
                   ) : (
                     <Text style={styles.playButtonText}>PLAY</Text>
