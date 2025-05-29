@@ -41,23 +41,16 @@ const shuffleArray = (array) => {
 const HomeScreen = ({ navigation }) => {
   const [category, setCategory] = useState('');
   const [selectedTime, setSelectedTime] = useState(60);
-  const [showTimeSelect, setShowTimeSelect] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Animated values
   const scrollY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-  const timeSelectY = useSharedValue(SCREEN_HEIGHT);
   const logoScale = useSharedValue(1);
   const logoTranslateY = useSharedValue(0);
   const inputTranslateX = useSharedValue(0);
   const buttonRotateZ = useSharedValue(0);
 
   const resetAnimatedValues = () => {
-    scale.value = 1;
-    opacity.value = 1;
-    timeSelectY.value = SCREEN_HEIGHT;
     logoScale.value = 1;
     logoTranslateY.value = 0;
     inputTranslateX.value = 0;
@@ -123,7 +116,6 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     const resetHomeScreen = () => {
       setCategory('');
-      setShowTimeSelect(false);
       setIsGenerating(false);
       resetAnimatedValues();
     };
@@ -132,35 +124,24 @@ const HomeScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const timeSelectStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: timeSelectY.value }],
-  }));
-
   const handleCustomCategorySubmit = () => {
     console.log('handleCustomCategorySubmit called with category:', category);
     if (category.trim()) {
-      console.log('Showing time select screen');
-      showTimeSelectScreen();
+      console.log('Navigating to TimeSelect screen');
+      navigation.navigate('TimeSelect', {
+        defaultTime: 60,
+        onComplete: (selectedTime) => {
+          console.log('Time selected:', selectedTime);
+          handleStartGame(selectedTime);
+        }
+      });
     } else {
       console.log('No category entered, not showing time select');
     }
   };
 
-  const showTimeSelectScreen = () => {
-    Keyboard.dismiss();
-    scale.value = withSpring(20, { damping: 15 });
-    opacity.value = withTiming(0, { duration: 400 });
-    timeSelectY.value = withSpring(0, { damping: 15 });
-    setShowTimeSelect(true);
-  };
-
-  const handleStartGame = async () => {
-    console.log('handleStartGame called with category:', category);
+  const handleStartGame = async (timeLimit = selectedTime) => {
+    console.log('handleStartGame called with category:', category, 'timeLimit:', timeLimit);
     if (!category.trim()) {
       console.log('No category provided, returning early');
       return;
@@ -196,7 +177,7 @@ const HomeScreen = ({ navigation }) => {
       navigation.navigate('Game', {
         items: shuffleArray(data.items),
         category: category,
-        timeLimit: selectedTime,
+        timeLimit: timeLimit,
       });
     } catch (error) {
       console.error('API Error:', error);
@@ -231,7 +212,7 @@ const HomeScreen = ({ navigation }) => {
         colors={COLORS.gradient.primary}
         style={styles.container}
       >
-        <Animated.View style={[styles.mainContent, animatedStyle]}>
+        <View style={styles.mainContent}>
           <Animated.ScrollView 
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -286,32 +267,7 @@ const HomeScreen = ({ navigation }) => {
             </Animated.View>
 
           </Animated.ScrollView>
-        </Animated.View>
-
-        <Animated.View style={[styles.timeSelectContainer, timeSelectStyle]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => {
-              timeSelectY.value = withSpring(SCREEN_HEIGHT);
-              scale.value = withSpring(1);
-              opacity.value = withTiming(1);
-              setShowTimeSelect(false);
-            }}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.selectTimeText}>Select Time</Text>
-          <TimeSlider 
-            value={selectedTime}
-            onValueChange={setSelectedTime} 
-          />
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={handleStartGame}
-          >
-            <Text style={styles.startButtonText}>Start Game</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        </View>
       </LinearGradient>
     </View>
   );
@@ -359,49 +315,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playButtonText: {
-    ...FONTS.button,
-    color: COLORS.text,
-  },
-  timeSelectContainer: {
-    position: 'absolute',
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 100,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    ...FONTS.title,
-    color: COLORS.text,
-    fontSize: 24,
-  },
-  selectTimeText: {
-    ...FONTS.title,
-    color: COLORS.text,
-    marginBottom: 40,
-  },
-  startButton: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: SIZES.padding * 2,
-    paddingVertical: SIZES.padding,
-    borderRadius: SIZES.radius,
-    marginTop: 50,
-    width: '80%',
-    alignItems: 'center',
-  },
-  startButtonText: {
     ...FONTS.button,
     color: COLORS.text,
   },

@@ -161,11 +161,14 @@ const GameScreen = ({ route, navigation }) => {
   }, [isPlaying]);
 
   const startCountdown = async () => {
+    console.log('startCountdown called');
     setIsCountingDown(true);
+    console.log('isCountingDown set to true');
     const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
     
     for (let i = 0; i < countdownSteps.length; i++) {
       setCountdownText(countdownSteps[i]);
+      console.log('Countdown step:', countdownSteps[i]);
       
       // Add haptic feedback for numbers and Go!
       if (i > 0) { // Skip haptics for "Place on Forehead"
@@ -199,6 +202,7 @@ const GameScreen = ({ route, navigation }) => {
       await new Promise(resolve => setTimeout(resolve, 400));
     }
     
+    console.log('Countdown finished, setting isCountingDown to false and isPlaying to true');
     setIsCountingDown(false);
     setIsPlaying(true);
   };
@@ -270,6 +274,7 @@ const GameScreen = ({ route, navigation }) => {
   };
 
   const startGame = () => {
+    console.log('startGame called');
     startCountdown();
   };
 
@@ -324,6 +329,7 @@ const GameScreen = ({ route, navigation }) => {
   }));
 
   if (isLoading) {
+    console.log('Rendering loading screen');
     return (
       <LinearGradient colors={COLORS.gradient.primary} style={styles.container}>
         <LoadingDeck />
@@ -332,6 +338,7 @@ const GameScreen = ({ route, navigation }) => {
   }
 
   if (isCountingDown) {
+    console.log('Rendering countdown screen with text:', countdownText);
     return (
       <LinearGradient 
         colors={COLORS.gradient.primary} 
@@ -351,6 +358,7 @@ const GameScreen = ({ route, navigation }) => {
   }
 
   if (!isPlaying) {
+    console.log('Rendering pre-game screen');
     return (
       <View style={{ flex: 1 }}>
         <StatusBar hidden />
@@ -375,9 +383,11 @@ const GameScreen = ({ route, navigation }) => {
   }
 
   if (gameEnded) {
+    console.log('Game ended, returning null');
     return null; // Return null since we're navigating away
   }
 
+  console.log('Rendering main game screen');
   return (
     <View style={{ flex: 1 }}>
       <StatusBar hidden />
