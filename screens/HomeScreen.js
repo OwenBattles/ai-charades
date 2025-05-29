@@ -18,8 +18,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  withSequence,
-  interpolateColor,
   useAnimatedScrollHandler,
   interpolate,
   Extrapolate,
@@ -28,18 +26,8 @@ import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Logo from '../components/Logo';
 import TimeSlider from '../components/TimeSlider';
 import LoadingDeck from '../components/LoadingDeck';
-import { defaultDecks } from '../data/defaultDecks';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const TILE_MARGIN = 8;
-const TILES_PER_ROW = 2;
-const TILE_WIDTH = (SCREEN_WIDTH- (SIZES.padding * 2) - (TILE_MARGIN * (TILES_PER_ROW + 1))) / TILES_PER_ROW;
-
-const DECK_COLORS = [
-  ['#6366f1', '#818cf8'], // Modern Indigo
-];
-
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const shuffleArray = (array) => {
   const shuffled = [...array];
@@ -56,14 +44,12 @@ const HomeScreen = ({ navigation }) => {
   const [selectedTime, setSelectedTime] = useState(60);
   const [showTimeSelect, setShowTimeSelect] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   // Animated values
   const scrollY = useSharedValue(0);
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
   const timeSelectY = useSharedValue(SCREEN_HEIGHT);
-  const deckScales = useRef(Object.keys(defaultDecks).map(() => useSharedValue(1))).current;
   const logoScale = useSharedValue(1);
   const logoTranslateY = useSharedValue(0);
   const inputTranslateX = useSharedValue(0);
@@ -140,7 +126,6 @@ const HomeScreen = ({ navigation }) => {
       setCategory('');
       setShowTimeSelect(false);
       setIsGenerating(false);
-      setIsCustomCategory(false);
       resetAnimatedValues();
     };
 
@@ -157,15 +142,8 @@ const HomeScreen = ({ navigation }) => {
     transform: [{ translateY: timeSelectY.value }],
   }));
 
-  const handleDefaultDeckSelect = (deckName) => {
-    setCategory(deckName);
-    setIsCustomCategory(false);
-    showTimeSelectScreen();
-  };
-
   const handleCustomCategorySubmit = () => {
     if (category.trim()) {
-      setIsCustomCategory(true);
       showTimeSelectScreen();
     }
   };
@@ -181,82 +159,44 @@ const HomeScreen = ({ navigation }) => {
   const handleStartGame = async () => {
     if (!category.trim()) return;
 
-    if (isCustomCategory) {
-      setIsGenerating(true);
-      try {
-        const response = await fetch('https://charaids.onrender.com/generate-list', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            category: category.trim(),
-            count: 35,
-          }),
-        });
+    setIsGenerating(true);
+    try {
+      const response = await fetch('https://charaids.onrender.com/generate-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: category.trim(),
+          count: 35,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.items || !Array.isArray(data.items)) {
-          throw new Error('Invalid response format');
-        }
-
-        navigation.navigate('Game', {
-          items: shuffleArray(data.items),
-          category: category,
-          timeLimit: selectedTime,
-        });
-      } catch (error) {
-        console.error('API Error:', error);
-        Alert.alert(
-          'Error',
-          'The server is taking longer than expected. Please try again in a moment.',
-          [{ text: 'OK' }]
-        );
-      } finally {
-        setIsGenerating(false);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
       }
-    } else {
-      // Use local deck
+
+      const data = await response.json();
+      
+      if (!data.items || !Array.isArray(data.items)) {
+        throw new Error('Invalid response format');
+      }
+
       navigation.navigate('Game', {
-        items: shuffleArray(defaultDecks[category]),
+        items: shuffleArray(data.items),
         category: category,
         timeLimit: selectedTime,
       });
-    }
-  };
-
-  const handleDeckPress = (deckName, index) => {
-    deckScales[index].value = withSequence(
-      withTiming(0.95, { duration: 100 }),
-      withTiming(1, { duration: 100 })
-    );
-    handleDefaultDeckSelect(deckName);
-  };
-
-  const getDeckStyle = (index) => {
-    const yOffset = index * TILE_WIDTH;
-    return useAnimatedStyle(() => {
-      const scale = deckScales[index].value;
-      
-      const translateY = interpolate(
-        scrollY.value,
-        [yOffset - SCREEN_HEIGHT, yOffset, yOffset + SCREEN_HEIGHT],
-        [25, 0, -25], // Reduced movement range for subtler effect
-        Extrapolate.CLAMP
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert(
+        'Error',
+        'The server is taking longer than expected. Please try again in a moment.',
+        [{ text: 'OK' }]
       );
-
-      return {
-        transform: [
-          { scale },
-          { translateY }
-        ],
-      };
-    });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   if (isGenerating) {
@@ -325,51 +265,14 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.dividerLine} />
             </View>
 
-            <View style={styles.defaultDecksContainer}>
-              {Object.keys(defaultDecks).map((deckName, index) => (
-                <AnimatedTouchable
-                  key={deckName}
-                  style={[
-                    styles.defaultDeckTile,
-                    useAnimatedStyle(() => {
-                      const yOffset = index * (TILE_WIDTH + TILE_MARGIN);
-                      return {
-                        transform: [
-                          { scale: deckScales[index].value },
-                          {
-                            translateY: interpolate(
-                              scrollY.value,
-                              [yOffset - SCREEN_HEIGHT, yOffset, yOffset + SCREEN_HEIGHT],
-                              [15, 0, -15],
-                              Extrapolate.CLAMP
-                            )
-                          },
-                          {
-                            rotateZ: `${interpolate(
-                              scrollY.value,
-                              [yOffset - 100, yOffset, yOffset + 100],
-                              [-1, 0, 1],
-                              Extrapolate.CLAMP
-                            )}deg`
-                          }
-                        ]
-                      };
-                    })
-                  ]}
-                  onPress={() => handleDeckPress(deckName, index)}
-                >
-                  <LinearGradient
-                    colors={DECK_COLORS[0]}
-                    style={styles.deckGradient}
-                  >
-                    <Text style={styles.deckName}>{deckName}</Text>
-                    <Text style={styles.deckCount}>
-                      {defaultDecks[deckName].length} items
-                    </Text>
-                  </LinearGradient>
-                </AnimatedTouchable>
-              ))}
-            </View>
+            <Animated.View style={[styles.defaultDecksButtonContainer, buttonAnimatedStyle]}>
+              <TouchableOpacity
+                style={styles.defaultDecksButton}
+                onPress={() => navigation.navigate('SavedDecks')}
+              >
+                <Text style={styles.defaultDecksButtonText}>Play Default Decks</Text>
+              </TouchableOpacity>
+            </Animated.View>
 
           </Animated.ScrollView>
         </Animated.View>
@@ -382,9 +285,6 @@ const HomeScreen = ({ navigation }) => {
               scale.value = withSpring(1);
               opacity.value = withTiming(1);
               setShowTimeSelect(false);
-              if (isCustomCategory) {
-                setCategory('');
-              }
             }}
           >
             <Text style={styles.backButtonText}>←</Text>
@@ -517,34 +417,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginHorizontal: SIZES.padding,
   },
-  defaultDecksContainer: {
+  defaultDecksButtonContainer: {
     marginTop: SIZES.padding * 2,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: TILE_MARGIN,
+    alignItems: 'center',
   },
-  defaultDeckTile: {
-    width: TILE_WIDTH,
-    height: TILE_WIDTH,
-    marginBottom: TILE_MARGIN * 2,
+  defaultDecksButton: {
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: SIZES.padding * 2,
+    paddingVertical: SIZES.padding,
     borderRadius: SIZES.radius,
-    overflow: 'hidden',
+    marginTop: SIZES.padding,
+    width: '80%',
+    alignItems: 'center',
   },
-  deckGradient: {
-    flex: 1,
-    padding: SIZES.padding,
-    justifyContent: 'space-between',
-  },
-  deckName: {
-    ...FONTS.title,
+  defaultDecksButtonText: {
+    ...FONTS.button,
     color: COLORS.text,
-    fontSize: 24,
-  },
-  deckCount: {
-    ...FONTS.body,
-    color: COLORS.text,
-    opacity: 0.8,
   },
 });
 
