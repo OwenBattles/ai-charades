@@ -70,6 +70,10 @@ const GameScreen = ({ route, navigation }) => {
   const wordOpacity = useSharedValue(1);
   const countdownOpacity = useSharedValue(1);
   const countdownScale = useSharedValue(1);
+  const wordScale = useSharedValue(1);
+  const wordRotateZ = useSharedValue(0);
+  const wordTranslateY = useSharedValue(0);
+  const scoreScale = useSharedValue(1);
 
   // Initialize game state
   useEffect(() => {
@@ -180,13 +184,14 @@ const GameScreen = ({ route, navigation }) => {
 
   const startCountdown = async () => {
     console.log('startCountdown called');
+    console.log('Current state - isCountingDown:', isCountingDown, 'isPlaying:', isPlaying);
     setIsCountingDown(true);
     console.log('isCountingDown set to true');
     const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
     
     for (let i = 0; i < countdownSteps.length; i++) {
       setCountdownText(countdownSteps[i]);
-      console.log('Countdown step:', countdownSteps[i]);
+      console.log('Countdown step:', countdownSteps[i], 'isCountingDown state:', isCountingDown);
       
       // Add haptic feedback for numbers and Go!
       if (i > 0) { // Skip haptics for "Place on Forehead"
@@ -234,9 +239,30 @@ const GameScreen = ({ route, navigation }) => {
       return newItems;
     });
     setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
+    
+    // Enhanced animations for correct answer
+    wordScale.value = withSequence(
+      withSpring(1.2, { damping: 8, stiffness: 100 }),
+      withSpring(0.8, { damping: 8, stiffness: 100 })
+    );
+    wordRotateZ.value = withSequence(
+      withTiming(5, { duration: 150 }),
+      withTiming(-5, { duration: 150 }),
+      withTiming(0, { duration: 150 })
+    );
+    
+    // Score animation
+    scoreScale.value = withSequence(
+      withSpring(1.3, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 })
+    );
+    
     showFeedback('Correct!', true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    nextCard();
+    
+    setTimeout(() => {
+      nextCard();
+    }, 600);
   };
 
   const handleIncorrect = () => {
@@ -248,9 +274,25 @@ const GameScreen = ({ route, navigation }) => {
       return newItems;
     });
     setScore(prev => ({ ...prev, skipped: prev.skipped + 1 }));
+    
+    // Enhanced animations for skip
+    wordTranslateY.value = withSequence(
+      withSpring(-30, { damping: 8, stiffness: 100 }),
+      withSpring(30, { damping: 8, stiffness: 100 }),
+      withSpring(0, { damping: 10, stiffness: 100 })
+    );
+    wordScale.value = withSequence(
+      withSpring(0.9, { damping: 8, stiffness: 100 }),
+      withSpring(1.1, { damping: 8, stiffness: 100 }),
+      withSpring(0.8, { damping: 8, stiffness: 100 })
+    );
+    
     showFeedback('Skip!', false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    nextCard();
+    
+    setTimeout(() => {
+      nextCard();
+    }, 600);
   };
 
   const showFeedback = (text, isSuccess) => {
@@ -276,16 +318,21 @@ const GameScreen = ({ route, navigation }) => {
 
   const nextCard = () => {
     if (currentIndex < gameItems.length - 1) {
+      // Reset word animations
+      wordScale.value = withTiming(1, { duration: 200 });
+      wordRotateZ.value = withTiming(0, { duration: 200 });
+      wordTranslateY.value = withTiming(0, { duration: 200 });
+      
       // Fade out current word
       wordOpacity.value = withSequence(
-        withTiming(0, { duration: 150 }),
-        withDelay(100, withTiming(1, { duration: 150 }))
+        withTiming(0, { duration: 200 }),
+        withDelay(100, withTiming(1, { duration: 300 }))
       );
       
-      // Ensure we update the current index after the animation
+      // Update the current index after the fade animation
       setTimeout(() => {
         setCurrentIndex(prev => prev + 1);
-      }, 250);
+      }, 300);
     } else {
       endGame();
     }
@@ -329,13 +376,10 @@ const GameScreen = ({ route, navigation }) => {
         throw new Error('Invalid response format');
       }
 
-      console.log('Setting game items and starting countdown');
+      console.log('Setting game items - user will need to click Start again');
       setGameItems(shuffleArray(data.items));
       setIsGenerating(false);
-      // Start countdown after items are loaded
-      setTimeout(() => {
-        startCountdown();
-      }, 500);
+      // Don't automatically start countdown - wait for user to click Start again
     } catch (error) {
       console.error('API Error:', error);
       Alert.alert(
@@ -371,6 +415,11 @@ const GameScreen = ({ route, navigation }) => {
 
   const wordStyle = useAnimatedStyle(() => ({
     opacity: wordOpacity.value,
+    transform: [
+      { scale: wordScale.value },
+      { rotateZ: `${wordRotateZ.value}deg` },
+      { translateY: wordTranslateY.value }
+    ],
   }));
 
   const formatTime = (seconds) => {
@@ -395,6 +444,10 @@ const GameScreen = ({ route, navigation }) => {
   const countdownAnimatedStyle = useAnimatedStyle(() => ({
     opacity: countdownOpacity.value,
     transform: [{ scale: countdownScale.value }],
+  }));
+
+  const scoreStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scoreScale.value }],
   }));
 
   if (isLoading) {
@@ -423,6 +476,7 @@ const GameScreen = ({ route, navigation }) => {
 
   if (isCountingDown) {
     console.log('Rendering countdown screen with text:', countdownText);
+    console.log('isCountingDown:', isCountingDown, 'isPlaying:', isPlaying, 'isGenerating:', isGenerating);
     return (
       <LinearGradient 
         colors={COLORS.gradient.primary} 
@@ -492,7 +546,7 @@ const GameScreen = ({ route, navigation }) => {
 
         <View style={styles.gameFooter}>
           <Text style={styles.timer}>{formatTime(timeLeft)}</Text>
-          <Text style={styles.score}>Score: {score.correct}</Text>
+          <Animated.Text style={[styles.score, scoreStyle]}>Score: {score.correct}</Animated.Text>
         </View>
 
         <Animated.View style={overlayStyle}>
