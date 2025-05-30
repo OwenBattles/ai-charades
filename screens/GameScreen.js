@@ -36,24 +36,30 @@ const TILT_THRESHOLD = 0.7; // Decreased threshold for more sensitivity
 const DEBOUNCE_TIME = 1000; // ms
 const COUNTDOWN_DURATION = 1000;
 
-// Remove old orientation functions and add new orientation tracking
+// Add orientation-aware dimensions
+const getOrientation = () => {
+  return SCREEN_WIDTH > SCREEN_HEIGHT ? 'landscape' : 'portrait';
+};
+
+const getDimensions = () => {
+  const orientation = getOrientation();
+  return {
+    width: orientation === 'landscape' ? Math.max(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.min(SCREEN_WIDTH, SCREEN_HEIGHT),
+    height: orientation === 'landscape' ? Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.max(SCREEN_WIDTH, SCREEN_HEIGHT),
+  };
+};
+
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const GameScreen = ({ route, navigation }) => {
   const { items = [], category = '', timeLimit = 60 } = route.params;
-  const [orientation, setOrientation] = useState('portrait');
-  const [screenDimensions, setScreenDimensions] = useState({
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height
-  });
-  
-  // Computed dimensions based on orientation
-  const isLandscape = orientation === 'landscape';
-  const width = isLandscape
-    ? Math.max(screenDimensions.width, screenDimensions.height)
-    : Math.min(screenDimensions.width, screenDimensions.height);
-  const height = isLandscape
-    ? Math.min(screenDimensions.width, screenDimensions.height)
-    : Math.max(screenDimensions.width, screenDimensions.height);
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -66,6 +72,7 @@ const GameScreen = ({ route, navigation }) => {
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
   const [gameStarted, setGameStarted] = useState(false);
+  const [dimensions, setDimensions] = useState(getDimensions());
 
   // Refs
   const timerRef = useRef(null);
@@ -111,38 +118,6 @@ const GameScreen = ({ route, navigation }) => {
     setIsCountingDown(false);
     setGameStarted(false);
   }, [timeLimit]);
-
-  // Add orientation change listener
-  useEffect(() => {
-    const updateOrientation = async () => {
-      const current = await ScreenOrientation.getOrientationAsync();
-      const isLandscape = (
-        current === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
-        current === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
-      );
-      setOrientation(isLandscape ? 'landscape' : 'portrait');
-    };
-
-    const updateDimensions = () => {
-      const { width, height } = Dimensions.get('window');
-      setScreenDimensions({ width, height });
-    };
-
-    const orientationSub = ScreenOrientation.addOrientationChangeListener(() => {
-      updateOrientation();
-    });
-
-    const dimensionsSub = Dimensions.addEventListener('change', updateDimensions);
-
-    // Initial updates
-    updateOrientation();
-    updateDimensions();
-
-    return () => {
-      ScreenOrientation.removeOrientationChangeListeners();
-      dimensionsSub.remove();
-    };
-  }, []);
 
   // Process items
   useEffect(() => {
@@ -395,7 +370,7 @@ const GameScreen = ({ route, navigation }) => {
     
     // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 200 }),
+      withTiming(0.95, { duration: 200 }),
       withDelay(400, withTiming(0, { duration: 600 }))
     );
     
@@ -446,7 +421,7 @@ const GameScreen = ({ route, navigation }) => {
     
     // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 200 }),
+      withTiming(0.95, { duration: 200 }),
       withDelay(400, withTiming(0, { duration: 600 }))
     );
     
@@ -708,19 +683,33 @@ const GameScreen = ({ route, navigation }) => {
     transform: [{ scale: timerPulse.value }],
   }));
 
+  // Add dimension change listener
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions(getDimensions());
+    };
+
+    const dimensionsHandler = Dimensions.addEventListener('change', updateDimensions);
+
+    return () => {
+      dimensionsHandler.remove();
+    };
+  }, []);
+
   // Update the countdown screen render
   if (isCountingDown) {
     console.log('Rendering countdown screen');
+    const isLandscape = getOrientation() === 'landscape';
     const countdownFontSize = isLandscape 
       ? countdownText === 'Place on Forehead' 
-        ? height * 0.12 
-        : height * 0.2
+        ? dimensions.height * 0.12 
+        : dimensions.height * 0.2
       : countdownText === 'Place on Forehead' 
         ? 48 
         : 72;
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <View style={styles.container}>
         <StatusBar hidden />
         <LinearGradient 
           colors={COLORS.gradient.primary}
@@ -732,7 +721,7 @@ const GameScreen = ({ route, navigation }) => {
               countdownAnimatedStyle,
               {
                 fontSize: countdownFontSize,
-                maxWidth: width * 0.9,
+                maxWidth: dimensions.width * 0.9,
                 textAlign: 'center',
               }
             ]}
@@ -740,17 +729,18 @@ const GameScreen = ({ route, navigation }) => {
             {countdownText}
           </Animated.Text>
         </LinearGradient>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Update the main game screen render
   if (isPlaying && !gameEnded) {
-    const wordFontSize = isLandscape ? height * 0.15 : 64;
-    const timerFontSize = isLandscape ? height * 0.08 : 32;
+    const isLandscape = getOrientation() === 'landscape';
+    const wordFontSize = isLandscape ? dimensions.height * 0.15 : 64;
+    const timerFontSize = isLandscape ? dimensions.height * 0.08 : 32;
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <View style={{ flex: 1 }}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -759,29 +749,41 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
             <TouchableOpacity 
               style={[styles.exitButton, { 
-                top: isLandscape ? height * 0.05 : 20,
-                left: isLandscape ? width * 0.02 : 20,
+                top: isLandscape ? dimensions.height * 0.05 : 20,
+                left: isLandscape ? dimensions.width * 0.02 : 20,
               }]} 
               onPress={() => handleButtonPress('exit', endGame)}
             >
               <Text style={[styles.exitButtonText, { 
-                fontSize: isLandscape ? height * 0.06 : 24 
+                fontSize: isLandscape ? dimensions.height * 0.06 : 24 
               }]}>✕</Text>
             </TouchableOpacity>
           </Animated.View>
           
           <Animated.View style={[styles.wordContainer, wordStyle, {
-            paddingHorizontal: isLandscape ? width * 0.1 : SIZES.padding * 2,
+            paddingHorizontal: isLandscape ? dimensions.width * 0.1 : SIZES.padding * 2,
           }]}>
             <Text style={[styles.wordText, { 
               fontSize: wordFontSize,
-              maxWidth: width * 0.8,
+              maxWidth: dimensions.width * 0.8,
             }]}>{items[currentIndex]}</Text>
+            
+            <Animated.View style={[styles.particlesContainer, particlesStyle]}>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>🎉</Text>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>✨</Text>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>🎊</Text>
+            </Animated.View>
           </Animated.View>
 
           <Animated.View style={[styles.gameFooter, gameFooterStyle, {
-            bottom: isLandscape ? height * 0.1 : 40,
-            paddingHorizontal: isLandscape ? width * 0.05 : SIZES.padding * 2,
+            bottom: isLandscape ? dimensions.height * 0.1 : 40,
+            paddingHorizontal: isLandscape ? dimensions.width * 0.05 : SIZES.padding * 2,
           }]}>
             <Animated.Text style={[styles.timer, timerStyle, { fontSize: timerFontSize }]}>
               {formatTime(timeLeft)}
@@ -794,12 +796,12 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.View style={overlayStyle}>
             <View style={styles.feedbackContainer}>
               <Text style={[styles.overlayFeedbackText, { 
-                fontSize: isLandscape ? height * 0.15 : 64 
+                fontSize: isLandscape ? dimensions.height * 0.15 : 64 
               }]}>{feedbackText}</Text>
             </View>
           </Animated.View>
         </LinearGradient>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -807,7 +809,7 @@ const GameScreen = ({ route, navigation }) => {
   if (!gameStarted) {
     console.log('Rendering pre-game screen');
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <View style={{ flex: 1 }}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -839,7 +841,7 @@ const GameScreen = ({ route, navigation }) => {
             </Animated.View>
           </View>
         </LinearGradient>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -850,7 +852,7 @@ const GameScreen = ({ route, navigation }) => {
 
   console.log('Rendering main game screen');
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <View style={{ flex: 1 }}>
       <StatusBar hidden />
       <LinearGradient
         colors={COLORS.gradient.primary}
@@ -867,6 +869,12 @@ const GameScreen = ({ route, navigation }) => {
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
           <Text style={[styles.wordText, { fontSize: 64 }]}>{items[currentIndex]}</Text>
+          
+          <Animated.View style={[styles.particlesContainer, particlesStyle]}>
+            <Text style={styles.particleText}>🎉</Text>
+            <Text style={styles.particleText}>✨</Text>
+            <Text style={styles.particleText}>🎊</Text>
+          </Animated.View>
         </Animated.View>
 
         <Animated.View style={[styles.gameFooter, gameFooterStyle]}>
@@ -884,27 +892,25 @@ const GameScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.background,
   },
   preGameContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 100,
+    paddingBottom: 100, // Adjust for better vertical centering
   },
   fullScreenContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
   gameHeader: {
     position: 'absolute',
@@ -927,10 +933,19 @@ const styles = StyleSheet.create({
   card: {
     width: SCREEN_WIDTH * 0.9,
     height: SCREEN_HEIGHT * 0.5,
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.secondary,
+    borderRadius: SIZES.radius,
     alignItems: 'center',
     justifyContent: 'center',
     padding: SIZES.padding * 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   cardText: {
     ...FONTS.title,
@@ -952,7 +967,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -977,9 +992,18 @@ const styles = StyleSheet.create({
     marginBottom: 50,
   },
   startButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.accent,
     paddingHorizontal: SIZES.padding * 3,
     paddingVertical: SIZES.padding,
+    borderRadius: SIZES.radius,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   startButtonText: {
     ...FONTS.button,
@@ -1025,6 +1049,7 @@ const styles = StyleSheet.create({
   wordItem: {
     width: '100%',
     padding: SIZES.padding * 0.8,
+    borderRadius: SIZES.radius,
     marginBottom: SIZES.padding * 0.5,
   },
   wordText: {
@@ -1044,8 +1069,9 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   homeButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.accent,
     paddingVertical: SIZES.padding,
+    borderRadius: SIZES.radius,
     marginBottom: Platform.OS === 'ios' ? 50 : SIZES.padding * 2,
     marginHorizontal: SIZES.padding * 2,
     width: '90%',
