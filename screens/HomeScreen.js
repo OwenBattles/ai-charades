@@ -198,14 +198,12 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.dividerLine} />
             </View>
 
-            <Animated.View style={[styles.defaultDecksButtonContainer, buttonAnimatedStyle]}>
-              <TouchableOpacity
-                style={styles.defaultDecksButton}
-                onPress={() => navigation.navigate('SavedDecks')}
-              >
-                <Text style={styles.defaultDecksButtonText}>Play Default Decks</Text>
-              </TouchableOpacity>
-            </Animated.View>
+            <TouchableOpacity
+              style={styles.defaultDecksButton}
+              onPress={() => navigation.navigate('SavedDecks')}
+            >
+              <Text style={styles.defaultDecksButtonText}>PLAY DEFAULT DECKS</Text>
+            </TouchableOpacity>
 
           </Animated.ScrollView>
         </View>
@@ -270,34 +268,36 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SIZES.padding,
+    marginVertical: SIZES.padding * 2,
+    paddingHorizontal: SIZES.padding,
   },
   dividerLine: {
     flex: 1,
     height: 1,
     backgroundColor: COLORS.textSecondary,
+    opacity: 0.3,
   },
   dividerText: {
     ...FONTS.body,
     color: COLORS.textSecondary,
     marginHorizontal: SIZES.padding,
-  },
-  defaultDecksButtonContainer: {
-    marginTop: SIZES.padding * 2,
-    alignItems: 'center',
+    fontSize: 16,
   },
   defaultDecksButton: {
     backgroundColor: COLORS.accent,
-    paddingHorizontal: SIZES.padding * 2,
     paddingVertical: SIZES.padding,
+    paddingHorizontal: SIZES.padding * 2,
     borderRadius: SIZES.radius,
-    marginTop: SIZES.padding,
-    width: '80%',
+    marginHorizontal: SIZES.padding,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SIZES.padding,
   },
   defaultDecksButtonText: {
     ...FONTS.button,
     color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
 

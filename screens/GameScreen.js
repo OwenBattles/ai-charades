@@ -197,10 +197,10 @@ const GameScreen = ({ route, navigation }) => {
       
       // Animate in
       countdownOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
-      countdownScale.value = withSpring(1, { 
-        damping: 8,
+      countdownScale.value = withSpring(1.2, { 
+        damping: 12,
         stiffness: 100,
-        mass: 0.8
+        mass: 1
       });
       
       // Add haptic feedback for numbers and Go!
@@ -214,13 +214,13 @@ const GameScreen = ({ route, navigation }) => {
         }
       }
       
-      // Wait
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Wait longer for "Place on Forehead"
+      await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 800));
       
       // Animate out (except for the last step)
       if (i < countdownSteps.length - 1) {
         countdownOpacity.value = withTiming(0, { duration: 200 });
-        countdownScale.value = withTiming(1.2, { duration: 200 });
+        countdownScale.value = withTiming(0.8, { duration: 200 });
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
@@ -330,12 +330,6 @@ const GameScreen = ({ route, navigation }) => {
       withTiming(0.85, { duration: 200 }),
       withDelay(600, withTiming(0, { duration: 400 }))
     );
-    
-    if (isSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
   };
 
   const nextCard = () => {
@@ -459,7 +453,12 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.Text 
             style={[
               styles.countdownText,
-              countdownAnimatedStyle
+              countdownAnimatedStyle,
+              {
+                fontSize: countdownText === 'Place on Forehead' ? 36 : 72,
+                width: '80%',
+                textAlign: 'center',
+              }
             ]}
           >
             {countdownText}
@@ -551,8 +550,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
   gameHeader: {
     position: 'absolute',
@@ -646,12 +643,11 @@ const styles = StyleSheet.create({
   },
   countdownText: {
     ...FONTS.title,
-    fontSize: 72,
     color: COLORS.text,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   summaryHeader: {
     flex: 1,
@@ -729,9 +725,13 @@ const styles = StyleSheet.create({
   },
   overlayFeedbackText: {
     ...FONTS.title,
-    fontSize: 60,
-    color: '#FFFFFF',
+    color: COLORS.text,
+    fontSize: 48,
+    fontWeight: 'bold',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   wordContainer: {
     flex: 1,
