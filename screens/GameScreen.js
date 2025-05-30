@@ -36,30 +36,24 @@ const TILT_THRESHOLD = 0.7; // Decreased threshold for more sensitivity
 const DEBOUNCE_TIME = 1000; // ms
 const COUNTDOWN_DURATION = 1000;
 
-// Add orientation-aware dimensions
-const getOrientation = () => {
-  return SCREEN_WIDTH > SCREEN_HEIGHT ? 'landscape' : 'portrait';
-};
-
-const getDimensions = () => {
-  const orientation = getOrientation();
-  return {
-    width: orientation === 'landscape' ? Math.max(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.min(SCREEN_WIDTH, SCREEN_HEIGHT),
-    height: orientation === 'landscape' ? Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.max(SCREEN_WIDTH, SCREEN_HEIGHT),
-  };
-};
-
-const shuffleArray = (array) => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
+// Remove old orientation functions and add new orientation tracking
 const GameScreen = ({ route, navigation }) => {
   const { items = [], category = '', timeLimit = 60 } = route.params;
+  const [orientation, setOrientation] = useState('portrait');
+  const [screenDimensions, setScreenDimensions] = useState({
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height
+  });
+  
+  // Computed dimensions based on orientation
+  const isLandscape = orientation === 'landscape';
+  const width = isLandscape
+    ? Math.max(screenDimensions.width, screenDimensions.height)
+    : Math.min(screenDimensions.width, screenDimensions.height);
+  const height = isLandscape
+    ? Math.min(screenDimensions.width, screenDimensions.height)
+    : Math.max(screenDimensions.width, screenDimensions.height);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,7 +66,6 @@ const GameScreen = ({ route, navigation }) => {
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
   const [gameStarted, setGameStarted] = useState(false);
-  const [dimensions, setDimensions] = useState(getDimensions());
 
   // Refs
   const timerRef = useRef(null);
@@ -118,6 +111,38 @@ const GameScreen = ({ route, navigation }) => {
     setIsCountingDown(false);
     setGameStarted(false);
   }, [timeLimit]);
+
+  // Add orientation change listener
+  useEffect(() => {
+    const updateOrientation = async () => {
+      const current = await ScreenOrientation.getOrientationAsync();
+      const isLandscape = (
+        current === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+        current === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
+      );
+      setOrientation(isLandscape ? 'landscape' : 'portrait');
+    };
+
+    const updateDimensions = () => {
+      const { width, height } = Dimensions.get('window');
+      setScreenDimensions({ width, height });
+    };
+
+    const orientationSub = ScreenOrientation.addOrientationChangeListener(() => {
+      updateOrientation();
+    });
+
+    const dimensionsSub = Dimensions.addEventListener('change', updateDimensions);
+
+    // Initial updates
+    updateOrientation();
+    updateDimensions();
+
+    return () => {
+      ScreenOrientation.removeOrientationChangeListeners();
+      dimensionsSub.remove();
+    };
+  }, []);
 
   // Process items
   useEffect(() => {
@@ -338,34 +363,51 @@ const GameScreen = ({ route, navigation }) => {
     });
     setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
     
-    // Enhanced card animation
+    // Enhanced animations for correct answer
+    correctParticles.value = withSequence(
+      withTiming(1, { duration: 300 }),
+      withTiming(0, { duration: 1000 })
+    );
+    
+    // More dramatic card animation
     cardScale.value = withSequence(
-      withSpring(1.2, { damping: 4, stiffness: 100 }),
-      withSpring(0.8, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
+      withSpring(1.3, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 10, stiffness: 100 })
+    );
+    
+    cardRotateY.value = withSequence(
+      withTiming(20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
+      withTiming(-20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
+      withTiming(0, { duration: 200, easing: Easing.out(Easing.back(2)) })
     );
     
     // Enhanced word animation
-    wordOpacity.value = withTiming(0, { duration: 200 });
+    wordScale.value = withSequence(
+      withSpring(1.5, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
+    );
     
-    // Enhanced feedback overlay with longer duration
+    // Enhanced score animation
+    scoreScale.value = withSequence(
+      withSpring(1.6, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
+    );
+    
+    // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withDelay(800, withTiming(0, { duration: 300 }))
+      withTiming(1, { duration: 200 }),
+      withDelay(400, withTiming(0, { duration: 600 }))
     );
     
     overlayScale.value = withSequence(
-      withSpring(1.1, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 }),
+      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
     showFeedback('Correct!', true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    // Delay next card to match animation
-    setTimeout(() => {
-      nextCard();
-    }, 800);
+    nextCard();
   };
 
   const handleIncorrect = () => {
@@ -379,66 +421,79 @@ const GameScreen = ({ route, navigation }) => {
     });
     setScore(prev => ({ ...prev, skipped: prev.skipped + 1 }));
     
-    // Enhanced skip animation
-    cardScale.value = withSequence(
-      withSpring(0.8, { damping: 4, stiffness: 150 }),
-      withSpring(1.1, { damping: 4, stiffness: 150 }),
-      withSpring(1, { damping: 6, stiffness: 150 })
+    // Enhanced skip shake animation
+    skipShake.value = withSequence(
+      withTiming(2, { duration: 50 }),
+      withTiming(-2, { duration: 100 }),
+      withTiming(2, { duration: 100 }),
+      withTiming(-2, { duration: 100 }),
+      withTiming(0, { duration: 50 })
     );
     
-    // Fade out current word
-    wordOpacity.value = withTiming(0, { duration: 200 });
+    // Enhanced vertical bounce
+    wordTranslateY.value = withSequence(
+      withSpring(-40, { damping: 6, stiffness: 150 }),
+      withSpring(40, { damping: 6, stiffness: 150 }),
+      withSpring(0, { damping: 8, stiffness: 100 })
+    );
     
-    // Enhanced feedback overlay with longer duration
+    // Enhanced card scale animation
+    cardScale.value = withSequence(
+      withSpring(0.9, { damping: 6, stiffness: 100 }),
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 })
+    );
+    
+    // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withDelay(800, withTiming(0, { duration: 300 }))
+      withTiming(1, { duration: 200 }),
+      withDelay(400, withTiming(0, { duration: 600 }))
     );
     
     overlayScale.value = withSequence(
-      withSpring(1.1, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 }),
+      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
     showFeedback('Skip', false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    
-    // Delay next card to match animation
-    setTimeout(() => {
-      nextCard();
-    }, 800);
+    nextCard();
   };
 
   const showFeedback = (text, isSuccess) => {
     setFeedbackText(text);
     setFeedbackColor(isSuccess ? '#4CAF50' : '#FF0000');
     
-    // Enhanced overlay animation
+    // Animate the overlay with improved timing
     overlayScale.value = withSequence(
-      withSpring(1.1, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
+      withTiming(1, { duration: 200, easing: Easing.out(Easing.back(1.7)) }),
+      withTiming(1, { duration: 600 })
+    );
+    overlayOpacity.value = withSequence(
+      withTiming(0.85, { duration: 200 }),
+      withDelay(600, withTiming(0, { duration: 400 }))
     );
   };
 
   const nextCard = () => {
     if (currentIndex < items.length - 1) {
-      // Update the current index
-      setCurrentIndex(prev => prev + 1);
+      // Enhanced card transition
+      wordOpacity.value = withSequence(
+        withTiming(0, { duration: 200, easing: Easing.in(Easing.quad) }),
+        withDelay(100, withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }))
+      );
       
-      // Reset and start new card animations
-      cardScale.value = 0.8;
-      wordOpacity.value = 0;
-      
-      // Animate in the new card
+      // Update the current index after the animation
       setTimeout(() => {
-        cardScale.value = withSpring(1, { damping: 8, stiffness: 100 });
-        wordOpacity.value = withTiming(1, { duration: 300 });
-      }, 100);
-      
-      // Reset other animations
-      wordScale.value = 1;
-      wordTranslateY.value = 0;
-      wordRotateZ.value = 0;
+        setCurrentIndex(prev => prev + 1);
+        // Reset card animations
+        cardScale.value = 1;
+        cardRotateY.value = 0;
+        wordScale.value = 1;
+        wordTranslateY.value = 0;
+        wordRotateZ.value = 0;
+      }, 300);
     } else {
       endGame();
     }
@@ -653,33 +708,19 @@ const GameScreen = ({ route, navigation }) => {
     transform: [{ scale: timerPulse.value }],
   }));
 
-  // Add dimension change listener
-  useEffect(() => {
-    const updateDimensions = () => {
-      setDimensions(getDimensions());
-    };
-
-    const dimensionsHandler = Dimensions.addEventListener('change', updateDimensions);
-
-    return () => {
-      dimensionsHandler.remove();
-    };
-  }, []);
-
   // Update the countdown screen render
   if (isCountingDown) {
     console.log('Rendering countdown screen');
-    const isLandscape = getOrientation() === 'landscape';
     const countdownFontSize = isLandscape 
       ? countdownText === 'Place on Forehead' 
-        ? dimensions.height * 0.12 
-        : dimensions.height * 0.2
+        ? height * 0.12 
+        : height * 0.2
       : countdownText === 'Place on Forehead' 
         ? 48 
         : 72;
 
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <StatusBar hidden />
         <LinearGradient 
           colors={COLORS.gradient.primary}
@@ -691,7 +732,7 @@ const GameScreen = ({ route, navigation }) => {
               countdownAnimatedStyle,
               {
                 fontSize: countdownFontSize,
-                maxWidth: dimensions.width * 0.9,
+                maxWidth: width * 0.9,
                 textAlign: 'center',
               }
             ]}
@@ -699,18 +740,17 @@ const GameScreen = ({ route, navigation }) => {
             {countdownText}
           </Animated.Text>
         </LinearGradient>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Update the main game screen render
   if (isPlaying && !gameEnded) {
-    const isLandscape = getOrientation() === 'landscape';
-    const wordFontSize = isLandscape ? dimensions.height * 0.15 : 64;
-    const timerFontSize = isLandscape ? dimensions.height * 0.08 : 32;
+    const wordFontSize = isLandscape ? height * 0.15 : 64;
+    const timerFontSize = isLandscape ? height * 0.08 : 32;
 
     return (
-      <View style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -719,29 +759,29 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
             <TouchableOpacity 
               style={[styles.exitButton, { 
-                top: isLandscape ? dimensions.height * 0.05 : 20,
-                left: isLandscape ? dimensions.width * 0.02 : 20,
+                top: isLandscape ? height * 0.05 : 20,
+                left: isLandscape ? width * 0.02 : 20,
               }]} 
               onPress={() => handleButtonPress('exit', endGame)}
             >
               <Text style={[styles.exitButtonText, { 
-                fontSize: isLandscape ? dimensions.height * 0.06 : 24 
+                fontSize: isLandscape ? height * 0.06 : 24 
               }]}>✕</Text>
             </TouchableOpacity>
           </Animated.View>
           
           <Animated.View style={[styles.wordContainer, wordStyle, {
-            paddingHorizontal: isLandscape ? dimensions.width * 0.1 : SIZES.padding * 2,
+            paddingHorizontal: isLandscape ? width * 0.1 : SIZES.padding * 2,
           }]}>
             <Text style={[styles.wordText, { 
               fontSize: wordFontSize,
-              maxWidth: dimensions.width * 0.8,
+              maxWidth: width * 0.8,
             }]}>{items[currentIndex]}</Text>
           </Animated.View>
 
           <Animated.View style={[styles.gameFooter, gameFooterStyle, {
-            bottom: isLandscape ? dimensions.height * 0.1 : 40,
-            paddingHorizontal: isLandscape ? dimensions.width * 0.05 : SIZES.padding * 2,
+            bottom: isLandscape ? height * 0.1 : 40,
+            paddingHorizontal: isLandscape ? width * 0.05 : SIZES.padding * 2,
           }]}>
             <Animated.Text style={[styles.timer, timerStyle, { fontSize: timerFontSize }]}>
               {formatTime(timeLeft)}
@@ -754,12 +794,12 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.View style={overlayStyle}>
             <View style={styles.feedbackContainer}>
               <Text style={[styles.overlayFeedbackText, { 
-                fontSize: isLandscape ? dimensions.height * 0.15 : 64 
+                fontSize: isLandscape ? height * 0.15 : 64 
               }]}>{feedbackText}</Text>
             </View>
           </Animated.View>
         </LinearGradient>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -767,7 +807,7 @@ const GameScreen = ({ route, navigation }) => {
   if (!gameStarted) {
     console.log('Rendering pre-game screen');
     return (
-      <View style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -799,7 +839,7 @@ const GameScreen = ({ route, navigation }) => {
             </Animated.View>
           </View>
         </LinearGradient>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -810,7 +850,7 @@ const GameScreen = ({ route, navigation }) => {
 
   console.log('Rendering main game screen');
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <StatusBar hidden />
       <LinearGradient
         colors={COLORS.gradient.primary}
@@ -844,25 +884,27 @@ const GameScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
       </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
   preGameContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 100, // Adjust for better vertical centering
+    paddingBottom: 100,
   },
   fullScreenContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    height: '100%',
   },
   gameHeader: {
     position: 'absolute',
@@ -885,19 +927,10 @@ const styles = StyleSheet.create({
   card: {
     width: SCREEN_WIDTH * 0.9,
     height: SCREEN_HEIGHT * 0.5,
-    backgroundColor: COLORS.secondary,
-    borderRadius: SIZES.radius,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     padding: SIZES.padding * 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
   },
   cardText: {
     ...FONTS.title,
@@ -919,7 +952,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.accent,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -944,18 +977,9 @@ const styles = StyleSheet.create({
     marginBottom: 50,
   },
   startButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: 'transparent',
     paddingHorizontal: SIZES.padding * 3,
     paddingVertical: SIZES.padding,
-    borderRadius: SIZES.radius,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   startButtonText: {
     ...FONTS.button,
@@ -1001,7 +1025,6 @@ const styles = StyleSheet.create({
   wordItem: {
     width: '100%',
     padding: SIZES.padding * 0.8,
-    borderRadius: SIZES.radius,
     marginBottom: SIZES.padding * 0.5,
   },
   wordText: {
@@ -1021,9 +1044,8 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   homeButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: 'transparent',
     paddingVertical: SIZES.padding,
-    borderRadius: SIZES.radius,
     marginBottom: Platform.OS === 'ios' ? 50 : SIZES.padding * 2,
     marginHorizontal: SIZES.padding * 2,
     width: '90%',
