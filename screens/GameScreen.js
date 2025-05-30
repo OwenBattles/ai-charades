@@ -338,51 +338,34 @@ const GameScreen = ({ route, navigation }) => {
     });
     setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
     
-    // Enhanced animations for correct answer
-    correctParticles.value = withSequence(
-      withTiming(1, { duration: 300 }),
-      withTiming(0, { duration: 1000 })
-    );
-    
-    // More dramatic card animation
+    // Enhanced card animation
     cardScale.value = withSequence(
-      withSpring(1.3, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 10, stiffness: 100 })
-    );
-    
-    cardRotateY.value = withSequence(
-      withTiming(20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
-      withTiming(-20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
-      withTiming(0, { duration: 200, easing: Easing.out(Easing.back(2)) })
+      withSpring(1.2, { damping: 4, stiffness: 100 }),
+      withSpring(0.8, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
     );
     
     // Enhanced word animation
-    wordScale.value = withSequence(
-      withSpring(1.5, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
-    );
+    wordOpacity.value = withTiming(0, { duration: 200 });
     
-    // Enhanced score animation
-    scoreScale.value = withSequence(
-      withSpring(1.6, { damping: 4, stiffness: 100 }),
-      withSpring(1, { damping: 6, stiffness: 100 })
-    );
-    
-    // Enhanced feedback overlay
+    // Enhanced feedback overlay with longer duration
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 200 }),
-      withDelay(400, withTiming(0, { duration: 600 }))
+      withTiming(1, { duration: 100 }),
+      withDelay(800, withTiming(0, { duration: 300 }))
     );
     
     overlayScale.value = withSequence(
-      withSpring(1.1, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 8, stiffness: 100 }),
-      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
+      withSpring(1.1, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
     );
     
     showFeedback('Correct!', true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    nextCard();
+    
+    // Delay next card to match animation
+    setTimeout(() => {
+      nextCard();
+    }, 800);
   };
 
   const handleIncorrect = () => {
@@ -396,79 +379,66 @@ const GameScreen = ({ route, navigation }) => {
     });
     setScore(prev => ({ ...prev, skipped: prev.skipped + 1 }));
     
-    // Enhanced skip shake animation
-    skipShake.value = withSequence(
-      withTiming(2, { duration: 50 }),
-      withTiming(-2, { duration: 100 }),
-      withTiming(2, { duration: 100 }),
-      withTiming(-2, { duration: 100 }),
-      withTiming(0, { duration: 50 })
-    );
-    
-    // Enhanced vertical bounce
-    wordTranslateY.value = withSequence(
-      withSpring(-40, { damping: 6, stiffness: 150 }),
-      withSpring(40, { damping: 6, stiffness: 150 }),
-      withSpring(0, { damping: 8, stiffness: 100 })
-    );
-    
-    // Enhanced card scale animation
+    // Enhanced skip animation
     cardScale.value = withSequence(
-      withSpring(0.9, { damping: 6, stiffness: 100 }),
-      withSpring(1.1, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 8, stiffness: 100 })
+      withSpring(0.8, { damping: 4, stiffness: 150 }),
+      withSpring(1.1, { damping: 4, stiffness: 150 }),
+      withSpring(1, { damping: 6, stiffness: 150 })
     );
     
-    // Enhanced feedback overlay
+    // Fade out current word
+    wordOpacity.value = withTiming(0, { duration: 200 });
+    
+    // Enhanced feedback overlay with longer duration
     overlayOpacity.value = withSequence(
-      withTiming(1, { duration: 200 }),
-      withDelay(400, withTiming(0, { duration: 600 }))
+      withTiming(1, { duration: 100 }),
+      withDelay(800, withTiming(0, { duration: 300 }))
     );
     
     overlayScale.value = withSequence(
-      withSpring(1.1, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 8, stiffness: 100 }),
-      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
+      withSpring(1.1, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
     );
     
     showFeedback('Skip', false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    nextCard();
+    
+    // Delay next card to match animation
+    setTimeout(() => {
+      nextCard();
+    }, 800);
   };
 
   const showFeedback = (text, isSuccess) => {
     setFeedbackText(text);
     setFeedbackColor(isSuccess ? '#4CAF50' : '#FF0000');
     
-    // Animate the overlay with improved timing
+    // Enhanced overlay animation
     overlayScale.value = withSequence(
-      withTiming(1, { duration: 200, easing: Easing.out(Easing.back(1.7)) }),
-      withTiming(1, { duration: 600 })
-    );
-    overlayOpacity.value = withSequence(
-      withTiming(0.85, { duration: 200 }),
-      withDelay(600, withTiming(0, { duration: 400 }))
+      withSpring(1.1, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
     );
   };
 
   const nextCard = () => {
     if (currentIndex < items.length - 1) {
-      // Enhanced card transition
-      wordOpacity.value = withSequence(
-        withTiming(0, { duration: 200, easing: Easing.in(Easing.quad) }),
-        withDelay(100, withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }))
-      );
+      // Update the current index
+      setCurrentIndex(prev => prev + 1);
       
-      // Update the current index after the animation
+      // Reset and start new card animations
+      cardScale.value = 0.8;
+      wordOpacity.value = 0;
+      
+      // Animate in the new card
       setTimeout(() => {
-        setCurrentIndex(prev => prev + 1);
-        // Reset card animations
-        cardScale.value = 1;
-        cardRotateY.value = 0;
-        wordScale.value = 1;
-        wordTranslateY.value = 0;
-        wordRotateZ.value = 0;
-      }, 300);
+        cardScale.value = withSpring(1, { damping: 8, stiffness: 100 });
+        wordOpacity.value = withTiming(1, { duration: 300 });
+      }, 100);
+      
+      // Reset other animations
+      wordScale.value = 1;
+      wordTranslateY.value = 0;
+      wordRotateZ.value = 0;
     } else {
       endGame();
     }
