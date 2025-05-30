@@ -180,13 +180,13 @@ const GameScreen = ({ route, navigation }) => {
 
           // Only process if we can trigger an action
           if (canTriggerAction.current) {
-            // Phone tilted down (toward floor) = correct answer
-            if (data.z < -TILT_THRESHOLD) {
+            // Phone tilted up (toward ceiling) = correct answer
+            if (data.z > TILT_THRESHOLD) {
               canTriggerAction.current = false;
               lastActionTime.current = now;
               handleCorrect();
-            // Phone tilted up (toward ceiling) = skip
-            } else if (data.z > TILT_THRESHOLD) {
+            // Phone tilted down (toward floor) = skip
+            } else if (data.z < -TILT_THRESHOLD) {
               canTriggerAction.current = false;
               lastActionTime.current = now;
               handleIncorrect();
@@ -370,7 +370,7 @@ const GameScreen = ({ route, navigation }) => {
     
     // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(0.95, { duration: 200 }),
+      withTiming(1, { duration: 200 }),
       withDelay(400, withTiming(0, { duration: 600 }))
     );
     
@@ -380,7 +380,7 @@ const GameScreen = ({ route, navigation }) => {
       withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
-    showFeedback('✓ Correct!', true);
+    showFeedback('Correct!', true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     nextCard();
   };
@@ -421,7 +421,7 @@ const GameScreen = ({ route, navigation }) => {
     
     // Enhanced feedback overlay
     overlayOpacity.value = withSequence(
-      withTiming(0.95, { duration: 200 }),
+      withTiming(1, { duration: 200 }),
       withDelay(400, withTiming(0, { duration: 600 }))
     );
     
@@ -431,14 +431,14 @@ const GameScreen = ({ route, navigation }) => {
       withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
-    showFeedback('⏭ Skip!', false);
+    showFeedback('Skip', false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     nextCard();
   };
 
   const showFeedback = (text, isSuccess) => {
     setFeedbackText(text);
-    setFeedbackColor(isSuccess ? '#4CAF50' : '#FF9800');
+    setFeedbackColor(isSuccess ? '#4CAF50' : '#FF0000');
     
     // Animate the overlay with improved timing
     overlayScale.value = withSequence(
@@ -767,18 +767,6 @@ const GameScreen = ({ route, navigation }) => {
               fontSize: wordFontSize,
               maxWidth: dimensions.width * 0.8,
             }]}>{items[currentIndex]}</Text>
-            
-            <Animated.View style={[styles.particlesContainer, particlesStyle]}>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>🎉</Text>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>✨</Text>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>🎊</Text>
-            </Animated.View>
           </Animated.View>
 
           <Animated.View style={[styles.gameFooter, gameFooterStyle, {
@@ -869,12 +857,6 @@ const GameScreen = ({ route, navigation }) => {
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
           <Text style={[styles.wordText, { fontSize: 64 }]}>{items[currentIndex]}</Text>
-          
-          <Animated.View style={[styles.particlesContainer, particlesStyle]}>
-            <Text style={styles.particleText}>🎉</Text>
-            <Text style={styles.particleText}>✨</Text>
-            <Text style={styles.particleText}>🎊</Text>
-          </Animated.View>
         </Animated.View>
 
         <Animated.View style={[styles.gameFooter, gameFooterStyle]}>
