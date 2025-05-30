@@ -202,7 +202,7 @@ const HomeScreen = ({ navigation }) => {
               style={styles.defaultDecksButton}
               onPress={() => navigation.navigate('SavedDecks')}
             >
-              <Text style={styles.defaultDecksButtonText}>PLAY DEFAULT DECKS</Text>
+              <Text style={styles.defaultDecksButtonText}>Play Default Decks</Text>
             </TouchableOpacity>
 
           </Animated.ScrollView>

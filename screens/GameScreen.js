@@ -444,29 +444,25 @@ const GameScreen = ({ route, navigation }) => {
   if (isCountingDown && gameStarted) {
     console.log('Rendering countdown screen with text:', countdownText);
     return (
-      <View style={styles.fullScreenContainer}>
+      <View style={{ flex: 1 }}>
         <StatusBar hidden />
         <LinearGradient 
           colors={COLORS.gradient.primary} 
           style={styles.fullScreenContainer}
         >
-          <Animated.View 
+          <Animated.Text 
             style={[
-              styles.countdownContainer,
+              styles.countdownText,
               countdownAnimatedStyle,
+              {
+                fontSize: countdownText === 'Place on Forehead' ? 36 : 72,
+                width: '80%',
+                textAlign: 'center',
+              }
             ]}
           >
-            <Animated.Text 
-              style={[
-                styles.countdownText,
-                {
-                  fontSize: countdownText === 'Place on Forehead' ? 48 : 96,
-                }
-              ]}
-            >
-              {countdownText}
-            </Animated.Text>
-          </Animated.View>
+            {countdownText}
+          </Animated.Text>
         </LinearGradient>
       </View>
     );
@@ -554,8 +550,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
   gameHeader: {
     position: 'absolute',
@@ -647,24 +641,13 @@ const styles = StyleSheet.create({
     ...FONTS.button,
     color: COLORS.text,
   },
-  countdownContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-    zIndex: 1000,
-  },
   countdownText: {
     ...FONTS.title,
     color: COLORS.text,
     fontWeight: 'bold',
-    textAlign: 'center',
-    width: '100%',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-    paddingHorizontal: SIZES.padding,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   summaryHeader: {
     flex: 1,
