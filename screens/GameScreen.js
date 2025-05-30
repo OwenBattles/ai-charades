@@ -26,6 +26,7 @@ import Animated, {
   Easing,
   interpolate,
   Extrapolate,
+  withRepeat,
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import LoadingDeck from '../components/LoadingDeck';
@@ -79,6 +80,19 @@ const GameScreen = ({ route, navigation }) => {
   const correctParticles = useSharedValue(0);
   const skipShake = useSharedValue(0);
   const countdownRotate = useSharedValue(0);
+  
+  // New animated values for enhanced interactions
+  const exitButtonScale = useSharedValue(1);
+  const exitButtonRotate = useSharedValue(0);
+  const categoryScale = useSharedValue(1);
+  const categoryTranslateY = useSharedValue(0);
+  const timeTextScale = useSharedValue(1);
+  const timeTextRotate = useSharedValue(0);
+  const startButtonScale = useSharedValue(1);
+  const startButtonRotate = useSharedValue(0);
+  const gameFooterTranslateY = useSharedValue(0);
+  const scoreTextRotate = useSharedValue(0);
+  const timerPulse = useSharedValue(1);
 
   // Initialize game state
   useEffect(() => {
@@ -198,32 +212,53 @@ const GameScreen = ({ route, navigation }) => {
       setCountdownText(countdownSteps[i]);
       console.log('Setting countdown text to:', countdownSteps[i]);
       
-      // Reset animation values with more dramatic starting points
-      countdownScale.value = 0.1;
+      // Reset animation values
+      countdownScale.value = 0;
       countdownOpacity.value = 0;
-      countdownRotate.value = -360;
+      countdownRotate.value = -180;
       
-      // Enhanced pop-in animation
-      countdownScale.value = withSpring(1.2, {
-        damping: 5,
-        stiffness: 120,
-        mass: 0.8,
-        velocity: 30
-      });
-      countdownOpacity.value = withTiming(1, { duration: 300 });
-      countdownRotate.value = withSpring(0, {
-        damping: 8,
-        stiffness: 80,
-      });
-      
-      // Add bounce effect
-      setTimeout(() => {
-        countdownScale.value = withSpring(1, {
-          damping: 8,
+      // Entrance animation sequence
+      countdownOpacity.value = withTiming(1, { duration: 200 });
+      countdownScale.value = withSequence(
+        withSpring(1.4, {
+          damping: 12,
           stiffness: 100,
-          mass: 1
-        });
-      }, 200);
+          mass: 1,
+          velocity: 20
+        }),
+        withSpring(1, {
+          damping: 8,
+          stiffness: 100
+        })
+      );
+      countdownRotate.value = withSpring(0, {
+        damping: 10,
+        stiffness: 80,
+        mass: 0.8
+      });
+      
+      // Add bounce effect for numbers
+      if (i > 0 && i < countdownSteps.length - 1) {
+        setTimeout(() => {
+          countdownScale.value = withSequence(
+            withSpring(1.2, { damping: 4, stiffness: 200 }),
+            withSpring(0.8, { damping: 4, stiffness: 200 }),
+            withSpring(1, { damping: 6, stiffness: 200 })
+          );
+        }, 300);
+      }
+      
+      // Special animation for "Go!"
+      if (i === countdownSteps.length - 1) {
+        countdownScale.value = withSequence(
+          withSpring(1.6, { damping: 3, stiffness: 150 }),
+          withSpring(1, { damping: 8, stiffness: 100 })
+        );
+        countdownRotate.value = withSequence(
+          withSpring(360, { damping: 10, stiffness: 50 }),
+          withSpring(0, { damping: 12, stiffness: 100 })
+        );
+      }
       
       // Enhanced haptic feedback
       if (i === 0) {
@@ -237,35 +272,41 @@ const GameScreen = ({ route, navigation }) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       
-      // Wait for each step with varying durations
+      // Wait between steps with varying durations
       await new Promise(resolve => setTimeout(resolve, i === 0 ? 2000 : 1000));
       
-      // Enhanced fade-out animation
+      // Exit animation
       if (i < countdownSteps.length - 1) {
-        countdownScale.value = withSequence(
-          withSpring(1.3, { damping: 10, stiffness: 100 }),
-          withSpring(0.5, { damping: 12, stiffness: 100 })
-        );
-        countdownOpacity.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-        countdownRotate.value = withSpring(360, {
+        countdownOpacity.value = withTiming(0, { 
+          duration: 300,
+          easing: Easing.out(Easing.cubic)
+        });
+        countdownScale.value = withSpring(0.5, {
+          damping: 12,
+          stiffness: 100
+        });
+        countdownRotate.value = withSpring(180, {
           damping: 8,
-          stiffness: 80,
+          stiffness: 80
+        });
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } else {
+        // Final exit animation
+        countdownScale.value = withSequence(
+          withSpring(1.8, { damping: 4, stiffness: 100 }),
+          withSpring(0, { damping: 8, stiffness: 100 })
+        );
+        countdownOpacity.value = withTiming(0, {
+          duration: 400,
+          easing: Easing.out(Easing.cubic)
+        });
+        countdownRotate.value = withSpring(720, {
+          damping: 5,
+          stiffness: 50
         });
         await new Promise(resolve => setTimeout(resolve, 400));
       }
     }
-    
-    // Final animation with more dramatic effect
-    countdownScale.value = withSequence(
-      withSpring(1.5, { damping: 8, stiffness: 100 }),
-      withSpring(0.2, { damping: 12, stiffness: 100 })
-    );
-    countdownOpacity.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) });
-    countdownRotate.value = withSpring(720, {
-      damping: 8,
-      stiffness: 80,
-    });
-    await new Promise(resolve => setTimeout(resolve, 500));
     
     console.log('Countdown finished, starting game');
     setIsCountingDown(false);
@@ -478,7 +519,10 @@ const GameScreen = ({ route, navigation }) => {
 
   const countdownAnimatedStyle = useAnimatedStyle(() => ({
     opacity: countdownOpacity.value,
-    transform: [{ scale: countdownScale.value }],
+    transform: [
+      { scale: countdownScale.value },
+      { rotateZ: `${countdownRotate.value}deg` }
+    ],
   }));
 
   const scoreStyle = useAnimatedStyle(() => ({
@@ -504,6 +548,127 @@ const GameScreen = ({ route, navigation }) => {
     };
   });
 
+  // Initialize entry animations
+  useEffect(() => {
+    if (!gameStarted) {
+      // Reset and trigger entry animations
+      categoryScale.value = 0;
+      categoryTranslateY.value = 50;
+      timeTextScale.value = 0;
+      startButtonScale.value = 0;
+      exitButtonScale.value = 0;
+      
+      // Sequence the entry animations
+      setTimeout(() => {
+        exitButtonScale.value = withSpring(1, { damping: 8, stiffness: 100 });
+        categoryScale.value = withSpring(1, { damping: 8, stiffness: 100 });
+        categoryTranslateY.value = withSpring(0, { damping: 8, stiffness: 100 });
+      }, 100);
+      
+      setTimeout(() => {
+        timeTextScale.value = withSpring(1, { damping: 8, stiffness: 100 });
+      }, 300);
+      
+      setTimeout(() => {
+        startButtonScale.value = withSpring(1, { damping: 6, stiffness: 100 });
+      }, 500);
+    }
+  }, [gameStarted]);
+
+  // Add continuous animations
+  useEffect(() => {
+    if (isPlaying) {
+      // Continuous subtle rotation for score text
+      scoreTextRotate.value = withRepeat(
+        withSequence(
+          withTiming(-5, { duration: 2000 }),
+          withTiming(5, { duration: 2000 })
+        ),
+        -1,
+        true
+      );
+      
+      // Timer pulse animation when time is low
+      if (timeLeft <= 10) {
+        timerPulse.value = withRepeat(
+          withSequence(
+            withSpring(1.2, { damping: 4 }),
+            withSpring(1, { damping: 4 })
+          ),
+          -1,
+          true
+        );
+      }
+    }
+  }, [isPlaying, timeLeft]);
+
+  // Enhanced button press animations
+  const handleButtonPress = (button, action) => {
+    const buttonScale = button === 'exit' ? exitButtonScale :
+                       button === 'start' ? startButtonScale : 1;
+    
+    buttonScale.value = withSequence(
+      withSpring(0.8, { damping: 4, stiffness: 400 }),
+      withSpring(1.2, { damping: 4, stiffness: 400 }),
+      withSpring(1, { damping: 6, stiffness: 400 })
+    );
+    
+    if (button === 'exit') {
+      exitButtonRotate.value = withSequence(
+        withSpring(-30, { damping: 4 }),
+        withSpring(30, { damping: 4 }),
+        withSpring(0, { damping: 6 })
+      );
+    }
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTimeout(() => action(), 200);
+  };
+
+  // Enhanced animated styles
+  const exitButtonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: exitButtonScale.value },
+      { rotate: `${exitButtonRotate.value}deg` }
+    ],
+  }));
+
+  const categoryStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: categoryScale.value },
+      { translateY: categoryTranslateY.value }
+    ],
+  }));
+
+  const timeTextStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: timeTextScale.value },
+      { rotate: `${timeTextRotate.value}deg` }
+    ],
+  }));
+
+  const startButtonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: startButtonScale.value },
+      { rotate: `${startButtonRotate.value}deg` }
+    ],
+  }));
+
+  const gameFooterStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: gameFooterTranslateY.value }],
+  }));
+
+  const scoreTextStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scoreScale.value },
+      { rotate: `${scoreTextRotate.value}deg` }
+    ],
+  }));
+
+  const timerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: timerPulse.value }],
+  }));
+
   // Show countdown screen
   if (isCountingDown) {
     console.log('Rendering countdown screen');
@@ -517,13 +682,9 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.Text 
             style={[
               styles.countdownText,
+              countdownAnimatedStyle,
               {
-                fontSize: countdownText === 'Place on Forehead' ? 48 : 64,
-                opacity: countdownOpacity,
-                transform: [
-                  { scale: countdownScale },
-                  { rotateY: `${countdownRotate.value}deg` }
-                ]
+                fontSize: countdownText === 'Place on Forehead' ? 48 : 72,
               }
             ]}
           >
@@ -544,22 +705,30 @@ const GameScreen = ({ route, navigation }) => {
           colors={COLORS.gradient.primary}
           style={styles.container}
         >
-          <TouchableOpacity 
-            style={styles.exitButton} 
-            onPress={() => navigation.navigate('Home')}
-          >
-            <Text style={styles.exitButtonText}>✕</Text>
-          </TouchableOpacity>
+          <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
+            <TouchableOpacity 
+              style={styles.exitButton} 
+              onPress={() => handleButtonPress('exit', () => navigation.navigate('Home'))}
+            >
+              <Text style={styles.exitButtonText}>✕</Text>
+            </TouchableOpacity>
+          </Animated.View>
           
           <View style={styles.preGameContent}>
-            <Text style={styles.category}>{category}</Text>
-            <Text style={styles.timeText}>{formatTime(timeLimit)}</Text>
-            <TouchableOpacity 
-              style={styles.startButton} 
-              onPress={startGame}
-            >
-              <Text style={styles.startButtonText}>Start</Text>
-            </TouchableOpacity>
+            <Animated.Text style={[styles.category, categoryStyle]}>
+              {category}
+            </Animated.Text>
+            <Animated.Text style={[styles.timeText, timeTextStyle]}>
+              {formatTime(timeLimit)}
+            </Animated.Text>
+            <Animated.View style={startButtonStyle}>
+              <TouchableOpacity 
+                style={styles.startButton} 
+                onPress={() => handleButtonPress('start', startGame)}
+              >
+                <Text style={styles.startButtonText}>Start</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </LinearGradient>
       </View>
@@ -579,17 +748,18 @@ const GameScreen = ({ route, navigation }) => {
         colors={COLORS.gradient.primary}
         style={styles.container}
       >
-        <TouchableOpacity 
-          style={styles.exitButton} 
-          onPress={endGame}
-        >
-          <Text style={styles.exitButtonText}>✕</Text>
-        </TouchableOpacity>
+        <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
+          <TouchableOpacity 
+            style={styles.exitButton} 
+            onPress={() => handleButtonPress('exit', endGame)}
+          >
+            <Text style={styles.exitButtonText}>✕</Text>
+          </TouchableOpacity>
+        </Animated.View>
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
           <Text style={[styles.wordText, { fontSize: 64 }]}>{items[currentIndex]}</Text>
           
-          {/* Particles effect for correct answers */}
           <Animated.View style={[styles.particlesContainer, particlesStyle]}>
             <Text style={styles.particleText}>🎉</Text>
             <Text style={styles.particleText}>✨</Text>
@@ -597,10 +767,14 @@ const GameScreen = ({ route, navigation }) => {
           </Animated.View>
         </Animated.View>
 
-        <View style={styles.gameFooter}>
-          <Text style={styles.timer}>{formatTime(timeLeft)}</Text>
-          <Animated.Text style={[styles.score, scoreStyle]}>Score: {score.correct}</Animated.Text>
-        </View>
+        <Animated.View style={[styles.gameFooter, gameFooterStyle]}>
+          <Animated.Text style={[styles.timer, timerStyle]}>
+            {formatTime(timeLeft)}
+          </Animated.Text>
+          <Animated.Text style={[styles.score, scoreTextStyle]}>
+            Score: {score.correct}
+          </Animated.Text>
+        </Animated.View>
 
         <Animated.View style={overlayStyle}>
           <View style={styles.feedbackContainer}>
@@ -917,6 +1091,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 5,
     borderRadius: 5,
+  },
+  exitButtonContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
   },
 });
 
