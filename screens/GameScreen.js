@@ -43,7 +43,7 @@ const shuffleArray = (array) => {
 };
 
 const GameScreen = ({ route, navigation }) => {
-  const { items = [], category = '', timeLimit = 60, isCustomCategory = false } = route.params;
+  const { items = [], category = '', timeLimit = 60 } = route.params;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,13 +51,10 @@ const GameScreen = ({ route, navigation }) => {
   const [countdownText, setCountdownText] = useState('Place on Forehead');
   const [score, setScore] = useState({ correct: 0, skipped: 0 });
   const [processedItems, setProcessedItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
-  const [gameItems, setGameItems] = useState(items);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   // Refs
   const timerRef = useRef(null);
@@ -87,17 +84,10 @@ const GameScreen = ({ route, navigation }) => {
 
   // Process items
   useEffect(() => {
-    if (gameItems.length > 0) {
-      setProcessedItems(gameItems.map(item => ({ text: item, status: 'pending' })));
-      setIsLoading(false);
-    } else if (isCustomCategory) {
-      // For custom categories, we start in preview mode (no items yet)
-      setIsLoading(false);
-    } else {
-      // For default categories, items should already be provided
-      setIsLoading(false);
+    if (items.length > 0) {
+      setProcessedItems(items.map(item => ({ text: item, status: 'pending' })));
     }
-  }, [gameItems, isCustomCategory]);
+  }, [items]);
 
   // Timer effect
   useEffect(() => {
@@ -184,14 +174,12 @@ const GameScreen = ({ route, navigation }) => {
 
   const startCountdown = async () => {
     console.log('startCountdown called');
-    console.log('Current state - isCountingDown:', isCountingDown, 'isPlaying:', isPlaying);
     setIsCountingDown(true);
-    console.log('isCountingDown set to true');
     const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
     
     for (let i = 0; i < countdownSteps.length; i++) {
       setCountdownText(countdownSteps[i]);
-      console.log('Countdown step:', countdownSteps[i], 'isCountingDown state:', isCountingDown);
+      console.log('Countdown step:', countdownSteps[i]);
       
       // Add haptic feedback for numbers and Go!
       if (i > 0) { // Skip haptics for "Place on Forehead"
@@ -259,10 +247,7 @@ const GameScreen = ({ route, navigation }) => {
     
     showFeedback('Correct!', true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    setTimeout(() => {
-      nextCard();
-    }, 600);
+    nextCard();
   };
 
   const handleIncorrect = () => {
@@ -289,10 +274,7 @@ const GameScreen = ({ route, navigation }) => {
     
     showFeedback('Skip!', false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    
-    setTimeout(() => {
-      nextCard();
-    }, 600);
+    nextCard();
   };
 
   const showFeedback = (text, isSuccess) => {
@@ -317,22 +299,17 @@ const GameScreen = ({ route, navigation }) => {
   };
 
   const nextCard = () => {
-    if (currentIndex < gameItems.length - 1) {
-      // Reset word animations
-      wordScale.value = withTiming(1, { duration: 200 });
-      wordRotateZ.value = withTiming(0, { duration: 200 });
-      wordTranslateY.value = withTiming(0, { duration: 200 });
-      
+    if (currentIndex < items.length - 1) {
       // Fade out current word
       wordOpacity.value = withSequence(
-        withTiming(0, { duration: 200 }),
-        withDelay(100, withTiming(1, { duration: 300 }))
+        withTiming(0, { duration: 150 }),
+        withDelay(100, withTiming(1, { duration: 150 }))
       );
       
-      // Update the current index after the fade animation
+      // Update the current index after the animation
       setTimeout(() => {
         setCurrentIndex(prev => prev + 1);
-      }, 300);
+      }, 250);
     } else {
       endGame();
     }
@@ -340,55 +317,7 @@ const GameScreen = ({ route, navigation }) => {
 
   const startGame = () => {
     console.log('startGame called');
-    if (isCustomCategory && gameItems.length === 0) {
-      // For custom categories, call API first
-      handleStartGame();
-    } else {
-      // For default categories or when items are already loaded, start countdown
-      startCountdown();
-    }
-  };
-
-  const handleStartGame = async () => {
-    console.log('handleStartGame called for custom category:', category);
-    setIsGenerating(true);
-    try {
-      const response = await fetch('https://charaids.onrender.com/generate-list', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          category: category.trim(),
-          count: 35,
-        }),
-      });
-
-      console.log('API response status:', response.status);
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('API response data:', data);
-      
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error('Invalid response format');
-      }
-
-      console.log('Setting game items - user will need to click Start again');
-      setGameItems(shuffleArray(data.items));
-      setIsGenerating(false);
-      // Don't automatically start countdown - wait for user to click Start again
-    } catch (error) {
-      console.error('API Error:', error);
-      Alert.alert(
-        'Error',
-        'The server is taking longer than expected. Please try again in a moment.',
-        [{ text: 'OK' }]
-      );
-      setIsGenerating(false);
-    }
+    startCountdown();
   };
 
   const endGame = async () => {
@@ -409,7 +338,7 @@ const GameScreen = ({ route, navigation }) => {
     navigation.navigate('Result', {
       score: score,
       category: category,
-      items: gameItems
+      items: items
     });
   };
 
@@ -450,33 +379,8 @@ const GameScreen = ({ route, navigation }) => {
     transform: [{ scale: scoreScale.value }],
   }));
 
-  if (isLoading) {
-    console.log('Rendering loading screen');
-    return (
-      <LinearGradient colors={COLORS.gradient.primary} style={styles.container}>
-        <LoadingDeck />
-      </LinearGradient>
-    );
-  }
-
-  if (isGenerating) {
-    console.log('Rendering generating deck animation');
-    return (
-      <View style={{ flex: 1 }}>
-        <StatusBar hidden />
-        <LinearGradient
-          colors={COLORS.gradient.primary}
-          style={[styles.container, styles.loadingContainer]}
-        >
-          <LoadingDeck />
-        </LinearGradient>
-      </View>
-    );
-  }
-
   if (isCountingDown) {
     console.log('Rendering countdown screen with text:', countdownText);
-    console.log('isCountingDown:', isCountingDown, 'isPlaying:', isPlaying, 'isGenerating:', isGenerating);
     return (
       <LinearGradient 
         colors={COLORS.gradient.primary} 
@@ -541,7 +445,7 @@ const GameScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
-          <Text style={styles.wordText}>{gameItems[currentIndex]}</Text>
+          <Text style={styles.wordText}>{items[currentIndex]}</Text>
         </Animated.View>
 
         <View style={styles.gameFooter}>
@@ -815,9 +719,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: COLORS.text,
     opacity: 0.8,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
   },
 });
 
