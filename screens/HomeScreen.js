@@ -20,11 +20,15 @@ import Animated, {
   useAnimatedScrollHandler,
   interpolate,
   Extrapolate,
+  withSequence,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Logo from '../components/Logo';
 import TimeSlider from '../components/TimeSlider';
 import LoadingDeck from '../components/LoadingDeck';
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -33,12 +37,15 @@ const HomeScreen = ({ navigation }) => {
   const [selectedTime, setSelectedTime] = useState(60);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Animated values
+  // Enhanced animated values
   const scrollY = useSharedValue(0);
   const logoScale = useSharedValue(1);
   const logoTranslateY = useSharedValue(0);
   const inputTranslateX = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
   const buttonRotateZ = useSharedValue(0);
+  const inputScale = useSharedValue(1);
+  const inputOpacity = useSharedValue(1);
 
   const resetAnimatedValues = () => {
     logoScale.value = 1;
@@ -49,57 +56,76 @@ const HomeScreen = ({ navigation }) => {
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      const y = event.contentOffset.y;
-      scrollY.value = y;
+      scrollY.value = event.contentOffset.y;
       
-      // Logo animations
+      // Parallax effect for logo
+      logoTranslateY.value = event.contentOffset.y * 0.5;
+      
+      // Scale effect for logo based on scroll
       logoScale.value = interpolate(
-        y,
-        [-50, 0, 100],
-        [1.1, 1, 0.95],
-        Extrapolate.CLAMP
-      );
-      logoTranslateY.value = interpolate(
-        y,
-        [-50, 0, 100],
-        [10, 0, -10],
-        Extrapolate.CLAMP
-      );
-
-      // Input field animation
-      inputTranslateX.value = interpolate(
-        y,
+        event.contentOffset.y,
         [0, 100],
-        [0, -5],
+        [1, 0.8],
         Extrapolate.CLAMP
       );
-
-      // Button rotation
-      buttonRotateZ.value = interpolate(
-        y,
-        [-50, 0, 100],
-        [-2, 0, 2],
+      
+      // Input field animation based on scroll
+      inputScale.value = interpolate(
+        event.contentOffset.y,
+        [0, 150],
+        [1, 0.95],
+        Extrapolate.CLAMP
+      );
+      
+      inputOpacity.value = interpolate(
+        event.contentOffset.y,
+        [0, 150],
+        [1, 0.8],
         Extrapolate.CLAMP
       );
     },
   });
 
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
+  const handleButtonPress = (action) => {
+    // Enhanced button press animation
+    buttonScale.value = withSequence(
+      withSpring(0.9, { damping: 4, stiffness: 400 }),
+      withSpring(1.1, { damping: 4, stiffness: 400 }),
+      withSpring(1, { damping: 6, stiffness: 400 })
+    );
+    
+    buttonRotateZ.value = withSequence(
+      withSpring(-0.1, { damping: 4, stiffness: 400 }),
+      withSpring(0.1, { damping: 4, stiffness: 400 }),
+      withSpring(0, { damping: 6, stiffness: 400 })
+    );
+    
+    // Add haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Execute the action after animation
+    setTimeout(() => action(), 200);
+  };
+
+  const logoStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: logoScale.value },
       { translateY: logoTranslateY.value }
     ],
   }));
 
-  const inputAnimatedStyle = useAnimatedStyle(() => ({
+  const inputStyle = useAnimatedStyle(() => ({
     transform: [
+      { scale: inputScale.value },
       { translateX: inputTranslateX.value }
     ],
+    opacity: inputOpacity.value,
   }));
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+  const buttonStyle = useAnimatedStyle(() => ({
     transform: [
-      { rotateZ: `${buttonRotateZ.value}deg` }
+      { scale: buttonScale.value },
+      { rotateZ: `${buttonRotateZ.value}rad` }
     ],
   }));
 
@@ -161,11 +187,11 @@ const HomeScreen = ({ navigation }) => {
             onScroll={scrollHandler}
             scrollEventThrottle={16}
           >
-            <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
+            <Animated.View style={[styles.logoContainer, logoStyle]}>
               <Logo />
             </Animated.View>
             
-            <Animated.View style={[styles.customCategoryContainer, inputAnimatedStyle]}>
+            <Animated.View style={[styles.customCategoryContainer, inputStyle]}>
               <TextInput
                 style={styles.input}
                 placeholder="Enter a custom category"
@@ -174,13 +200,22 @@ const HomeScreen = ({ navigation }) => {
                 onChangeText={setCategory}
                 onSubmitEditing={handleCustomCategorySubmit}
               />
-              <Animated.View style={buttonAnimatedStyle}>
-                <TouchableOpacity
+              <Animated.View style={buttonStyle}>
+                <AnimatedTouchableOpacity
                   style={[
                     styles.playButton,
                     !category.trim() && styles.playButtonDisabled
                   ]}
-                  onPress={handleCustomCategorySubmit}
+                  onPress={() => handleButtonPress(() => {
+                    if (category) {
+                      navigation.navigate('TimeSelect', {
+                        onComplete: (time) => {
+                          setIsGenerating(true);
+                          generateCustomDeck(category, time);
+                        },
+                      });
+                    }
+                  })}
                   disabled={isGenerating || !category.trim()}
                 >
                   {isGenerating ? (
@@ -188,7 +223,7 @@ const HomeScreen = ({ navigation }) => {
                   ) : (
                     <Text style={styles.playButtonText}>PLAY</Text>
                   )}
-                </TouchableOpacity>
+                </AnimatedTouchableOpacity>
               </Animated.View>
             </Animated.View>
 
@@ -198,12 +233,12 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.dividerLine} />
             </View>
 
-            <TouchableOpacity
-              style={styles.defaultDecksButton}
-              onPress={() => navigation.navigate('SavedDecks')}
+            <AnimatedTouchableOpacity
+              style={[styles.defaultDecksButton, buttonStyle]}
+              onPress={() => handleButtonPress(() => navigation.navigate('SavedDecks'))}
             >
               <Text style={styles.defaultDecksButtonText}>Play Default Decks</Text>
-            </TouchableOpacity>
+            </AnimatedTouchableOpacity>
 
           </Animated.ScrollView>
         </View>

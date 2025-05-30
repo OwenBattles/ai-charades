@@ -78,6 +78,7 @@ const GameScreen = ({ route, navigation }) => {
   const cardRotateY = useSharedValue(0);
   const correctParticles = useSharedValue(0);
   const skipShake = useSharedValue(0);
+  const countdownRotate = useSharedValue(0);
 
   // Initialize game state
   useEffect(() => {
@@ -185,53 +186,88 @@ const GameScreen = ({ route, navigation }) => {
     setIsCountingDown(true);
     setGameStarted(true);
     
+    // Initial haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Wait for state to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
     
     for (let i = 0; i < countdownSteps.length; i++) {
       setCountdownText(countdownSteps[i]);
-      console.log('Countdown step:', countdownSteps[i]);
+      console.log('Setting countdown text to:', countdownSteps[i]);
       
-      // Reset animation values
+      // Reset animation values with more dramatic starting points
+      countdownScale.value = 0.1;
       countdownOpacity.value = 0;
-      countdownScale.value = 0.5;
+      countdownRotate.value = -360;
       
-      // Animate in
-      countdownOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
-      countdownScale.value = withSpring(1.2, { 
-        damping: 12,
-        stiffness: 100,
-        mass: 1
+      // Enhanced pop-in animation
+      countdownScale.value = withSpring(1.2, {
+        damping: 5,
+        stiffness: 120,
+        mass: 0.8,
+        velocity: 30
+      });
+      countdownOpacity.value = withTiming(1, { duration: 300 });
+      countdownRotate.value = withSpring(0, {
+        damping: 8,
+        stiffness: 80,
       });
       
-      // Add haptic feedback for numbers and Go!
-      if (i > 0) { // Skip haptics for "Place on Forehead"
-        if (i === countdownSteps.length - 1) {
-          // Stronger haptic for "Go!"
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          // Light haptic for numbers
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+      // Add bounce effect
+      setTimeout(() => {
+        countdownScale.value = withSpring(1, {
+          damping: 8,
+          stiffness: 100,
+          mass: 1
+        });
+      }, 200);
+      
+      // Enhanced haptic feedback
+      if (i === 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (i === countdownSteps.length - 1) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setTimeout(() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }, 100);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       
-      // Wait longer for "Place on Forehead"
-      await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 800));
+      // Wait for each step with varying durations
+      await new Promise(resolve => setTimeout(resolve, i === 0 ? 2000 : 1000));
       
-      // Animate out (except for the last step)
+      // Enhanced fade-out animation
       if (i < countdownSteps.length - 1) {
-        countdownOpacity.value = withTiming(0, { duration: 200 });
-        countdownScale.value = withTiming(0.8, { duration: 200 });
-        await new Promise(resolve => setTimeout(resolve, 200));
+        countdownScale.value = withSequence(
+          withSpring(1.3, { damping: 10, stiffness: 100 }),
+          withSpring(0.5, { damping: 12, stiffness: 100 })
+        );
+        countdownOpacity.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
+        countdownRotate.value = withSpring(360, {
+          damping: 8,
+          stiffness: 80,
+        });
+        await new Promise(resolve => setTimeout(resolve, 400));
       }
     }
     
-    // Final animation for "Go!"
-    countdownOpacity.value = withTiming(0, { duration: 400 });
-    countdownScale.value = withTiming(2, { duration: 400 });
+    // Final animation with more dramatic effect
+    countdownScale.value = withSequence(
+      withSpring(1.5, { damping: 8, stiffness: 100 }),
+      withSpring(0.2, { damping: 12, stiffness: 100 })
+    );
+    countdownOpacity.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) });
+    countdownRotate.value = withSpring(720, {
+      damping: 8,
+      stiffness: 80,
+    });
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    console.log('Countdown finished, setting isCountingDown to false and isPlaying to true');
+    console.log('Countdown finished, starting game');
     setIsCountingDown(false);
     setIsPlaying(true);
   };
@@ -249,30 +285,44 @@ const GameScreen = ({ route, navigation }) => {
     
     // Enhanced animations for correct answer
     correctParticles.value = withSequence(
-      withTiming(1, { duration: 200 }),
-      withTiming(0, { duration: 800 })
+      withTiming(1, { duration: 300 }),
+      withTiming(0, { duration: 1000 })
     );
     
+    // More dramatic card animation
     cardScale.value = withSequence(
-      withSpring(1.1, { damping: 8, stiffness: 100 }),
-      withSpring(1, { damping: 12, stiffness: 100 })
+      withSpring(1.3, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 10, stiffness: 100 })
     );
     
     cardRotateY.value = withSequence(
-      withTiming(10, { duration: 200, easing: Easing.out(Easing.quad) }),
-      withTiming(-10, { duration: 200, easing: Easing.out(Easing.quad) }),
-      withTiming(0, { duration: 200, easing: Easing.out(Easing.quad) })
+      withTiming(20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
+      withTiming(-20, { duration: 200, easing: Easing.out(Easing.back(2)) }),
+      withTiming(0, { duration: 200, easing: Easing.out(Easing.back(2)) })
     );
     
+    // Enhanced word animation
     wordScale.value = withSequence(
-      withSpring(1.3, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 8, stiffness: 100 })
+      withSpring(1.5, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
     );
     
-    // Score animation
+    // Enhanced score animation
     scoreScale.value = withSequence(
-      withSpring(1.4, { damping: 6, stiffness: 100 }),
-      withSpring(1, { damping: 8, stiffness: 100 })
+      withSpring(1.6, { damping: 4, stiffness: 100 }),
+      withSpring(1, { damping: 6, stiffness: 100 })
+    );
+    
+    // Enhanced feedback overlay
+    overlayOpacity.value = withSequence(
+      withTiming(0.95, { duration: 200 }),
+      withDelay(400, withTiming(0, { duration: 600 }))
+    );
+    
+    overlayScale.value = withSequence(
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 }),
+      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
     showFeedback('✓ Correct!', true);
@@ -291,25 +341,39 @@ const GameScreen = ({ route, navigation }) => {
     });
     setScore(prev => ({ ...prev, skipped: prev.skipped + 1 }));
     
-    // Enhanced animations for skip
+    // Enhanced skip shake animation
     skipShake.value = withSequence(
-      withTiming(1, { duration: 50 }),
-      withTiming(-1, { duration: 100 }),
-      withTiming(1, { duration: 100 }),
-      withTiming(-1, { duration: 100 }),
+      withTiming(2, { duration: 50 }),
+      withTiming(-2, { duration: 100 }),
+      withTiming(2, { duration: 100 }),
+      withTiming(-2, { duration: 100 }),
       withTiming(0, { duration: 50 })
     );
     
+    // Enhanced vertical bounce
     wordTranslateY.value = withSequence(
-      withSpring(-20, { damping: 8, stiffness: 150 }),
-      withSpring(20, { damping: 8, stiffness: 150 }),
-      withSpring(0, { damping: 10, stiffness: 100 })
+      withSpring(-40, { damping: 6, stiffness: 150 }),
+      withSpring(40, { damping: 6, stiffness: 150 }),
+      withSpring(0, { damping: 8, stiffness: 100 })
     );
     
+    // Enhanced card scale animation
     cardScale.value = withSequence(
-      withSpring(0.95, { damping: 8, stiffness: 100 }),
-      withSpring(1.05, { damping: 8, stiffness: 100 }),
-      withSpring(1, { damping: 10, stiffness: 100 })
+      withSpring(0.9, { damping: 6, stiffness: 100 }),
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 })
+    );
+    
+    // Enhanced feedback overlay
+    overlayOpacity.value = withSequence(
+      withTiming(0.95, { duration: 200 }),
+      withDelay(400, withTiming(0, { duration: 600 }))
+    );
+    
+    overlayScale.value = withSequence(
+      withSpring(1.1, { damping: 6, stiffness: 100 }),
+      withSpring(1, { damping: 8, stiffness: 100 }),
+      withDelay(400, withSpring(1.2, { damping: 6, stiffness: 100 }))
     );
     
     showFeedback('⏭ Skip!', false);
@@ -441,23 +505,25 @@ const GameScreen = ({ route, navigation }) => {
   });
 
   // Show countdown screen
-  if (isCountingDown && gameStarted) {
-    console.log('Rendering countdown screen with text:', countdownText);
+  if (isCountingDown) {
+    console.log('Rendering countdown screen');
     return (
-      <View style={{ flex: 1 }}>
+      <View style={styles.container}>
         <StatusBar hidden />
         <LinearGradient 
-          colors={COLORS.gradient.primary} 
+          colors={COLORS.gradient.primary}
           style={styles.fullScreenContainer}
         >
           <Animated.Text 
             style={[
               styles.countdownText,
-              countdownAnimatedStyle,
               {
-                fontSize: countdownText === 'Place on Forehead' ? 36 : 72,
-                width: '80%',
-                textAlign: 'center',
+                fontSize: countdownText === 'Place on Forehead' ? 48 : 64,
+                opacity: countdownOpacity,
+                transform: [
+                  { scale: countdownScale },
+                  { rotateY: `${countdownRotate.value}deg` }
+                ]
               }
             ]}
           >
@@ -484,11 +550,17 @@ const GameScreen = ({ route, navigation }) => {
           >
             <Text style={styles.exitButtonText}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.category}>{category}</Text>
-          <Text style={styles.timeText}>{formatTime(timeLimit)}</Text>
-          <TouchableOpacity style={styles.startButton} onPress={startGame}>
-            <Text style={styles.startButtonText}>Start</Text>
-          </TouchableOpacity>
+          
+          <View style={styles.preGameContent}>
+            <Text style={styles.category}>{category}</Text>
+            <Text style={styles.timeText}>{formatTime(timeLimit)}</Text>
+            <TouchableOpacity 
+              style={styles.startButton} 
+              onPress={startGame}
+            >
+              <Text style={styles.startButtonText}>Start</Text>
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
       </View>
     );
@@ -515,7 +587,7 @@ const GameScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         
         <Animated.View style={[styles.wordContainer, wordStyle]}>
-          <Text style={styles.wordText}>{items[currentIndex]}</Text>
+          <Text style={[styles.wordText, { fontSize: 64 }]}>{items[currentIndex]}</Text>
           
           {/* Particles effect for correct answers */}
           <Animated.View style={[styles.particlesContainer, particlesStyle]}>
@@ -532,7 +604,7 @@ const GameScreen = ({ route, navigation }) => {
 
         <Animated.View style={overlayStyle}>
           <View style={styles.feedbackContainer}>
-            <Text style={styles.overlayFeedbackText}>{feedbackText}</Text>
+            <Text style={[styles.overlayFeedbackText, { fontSize: 64 }]}>{feedbackText}</Text>
           </View>
         </Animated.View>
       </LinearGradient>
@@ -543,8 +615,13 @@ const GameScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  preGameContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingBottom: 100, // Adjust for better vertical centering
   },
   fullScreenContainer: {
     flex: 1,
@@ -621,33 +698,47 @@ const styles = StyleSheet.create({
   category: {
     ...FONTS.title,
     color: COLORS.text,
-    fontSize: 36,
+    fontSize: 42,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
+    paddingHorizontal: SIZES.padding,
   },
   timeText: {
     ...FONTS.subtitle,
     color: COLORS.text,
-    fontSize: 28,
-    marginBottom: 40,
+    fontSize: 36,
+    marginBottom: 50,
   },
   startButton: {
     backgroundColor: COLORS.accent,
-    paddingHorizontal: SIZES.padding * 2,
+    paddingHorizontal: SIZES.padding * 3,
     paddingVertical: SIZES.padding,
     borderRadius: SIZES.radius,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   startButtonText: {
     ...FONTS.button,
     color: COLORS.text,
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   countdownText: {
     ...FONTS.title,
     color: COLORS.text,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textAlign: 'center',
+    padding: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    backfaceVisibility: 'visible',
   },
   summaryHeader: {
     flex: 1,
@@ -726,7 +817,7 @@ const styles = StyleSheet.create({
   overlayFeedbackText: {
     ...FONTS.title,
     color: COLORS.text,
-    fontSize: 48,
+    fontSize: 64,
     fontWeight: 'bold',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
@@ -811,6 +902,21 @@ const styles = StyleSheet.create({
     fontSize: 48,
     color: '#FFFFFF',
     margin: 5,
+  },
+  debugContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  debugText: {
+    color: COLORS.text,
+    fontSize: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 5,
+    borderRadius: 5,
   },
 });
 

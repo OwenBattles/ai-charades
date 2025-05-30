@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import TimeSlider from '../components/TimeSlider';
 import LoadingDeck from '../components/LoadingDeck';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 const shuffleArray = (array) => {
   const shuffled = [...array];
@@ -25,7 +34,34 @@ const TimeSelectScreen = ({ route, navigation }) => {
   const { onComplete, defaultTime = 60, category, isCustomCategory = false } = route.params;
   const [selectedTime, setSelectedTime] = useState(defaultTime);
   const [isGenerating, setIsGenerating] = useState(false);
-
+  
+  // Animated values
+  const buttonScale = useSharedValue(1);
+  const buttonRotateZ = useSharedValue(0);
+  const sliderScale = useSharedValue(1);
+  const headerTranslateY = useSharedValue(0);
+  
+  const handleButtonPress = (action) => {
+    // Enhanced button press animation
+    buttonScale.value = withSequence(
+      withSpring(0.9, { damping: 4, stiffness: 400 }),
+      withSpring(1.1, { damping: 4, stiffness: 400 }),
+      withSpring(1, { damping: 6, stiffness: 400 })
+    );
+    
+    buttonRotateZ.value = withSequence(
+      withSpring(-0.1, { damping: 4, stiffness: 400 }),
+      withSpring(0.1, { damping: 4, stiffness: 400 }),
+      withSpring(0, { damping: 6, stiffness: 400 })
+    );
+    
+    // Add haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Execute the action after animation
+    setTimeout(() => action(), 200);
+  };
+  
   const handleStart = async () => {
     if (isCustomCategory && category) {
       // For custom categories, call API and show generating animation
@@ -75,6 +111,46 @@ const TimeSelectScreen = ({ route, navigation }) => {
       onComplete(selectedTime);
     }
   };
+  
+  const handleTimeChange = (value) => {
+    setSelectedTime(value);
+    // Add subtle animation to slider
+    sliderScale.value = withSequence(
+      withSpring(1.05, { damping: 4, stiffness: 400 }),
+      withSpring(1, { damping: 6, stiffness: 400 })
+    );
+    // Add light haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+  
+  // Animated styles
+  const buttonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: buttonScale.value },
+      { rotateZ: `${buttonRotateZ.value}rad` }
+    ],
+  }));
+  
+  const sliderStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: sliderScale.value }],
+  }));
+  
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+  
+  // Entry animation
+  useEffect(() => {
+    headerTranslateY.value = -50;
+    sliderScale.value = 0.8;
+    buttonScale.value = 0.8;
+    
+    setTimeout(() => {
+      headerTranslateY.value = withSpring(0, { damping: 12, stiffness: 100 });
+      sliderScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      buttonScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+    }, 100);
+  }, []);
 
   if (isGenerating) {
     return (
@@ -89,28 +165,30 @@ const TimeSelectScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <LinearGradient colors={COLORS.gradient.primary} style={styles.gradient}>
-        <View style={styles.header}>
+        <Animated.View style={[styles.header, headerStyle]}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => handleButtonPress(() => navigation.goBack())}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Select Time</Text>
-        </View>
+        </Animated.View>
 
         <View style={styles.content}>
-          <TimeSlider 
-            value={selectedTime}
-            onValueChange={setSelectedTime}
-          />
+          <Animated.View style={[styles.sliderContainer, sliderStyle]}>
+            <TimeSlider 
+              value={selectedTime}
+              onValueChange={handleTimeChange}
+            />
+          </Animated.View>
 
-          <TouchableOpacity
-            style={styles.startButton}
+          <AnimatedTouchableOpacity
+            style={[styles.startButton, buttonStyle]}
             onPress={handleStart}
           >
             <Text style={styles.startButtonText}>Start Game</Text>
-          </TouchableOpacity>
+          </AnimatedTouchableOpacity>
         </View>
       </LinearGradient>
     </View>
@@ -177,6 +255,11 @@ const styles = StyleSheet.create({
     ...FONTS.button,
     color: COLORS.text,
     fontSize: 20,
+  },
+  sliderContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: SIZES.padding * 2,
   },
 });
 
