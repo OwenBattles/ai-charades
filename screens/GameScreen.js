@@ -36,6 +36,19 @@ const TILT_THRESHOLD = 0.7; // Decreased threshold for more sensitivity
 const DEBOUNCE_TIME = 1000; // ms
 const COUNTDOWN_DURATION = 1000;
 
+// Add orientation-aware dimensions
+const getOrientation = () => {
+  return SCREEN_WIDTH > SCREEN_HEIGHT ? 'landscape' : 'portrait';
+};
+
+const getDimensions = () => {
+  const orientation = getOrientation();
+  return {
+    width: orientation === 'landscape' ? Math.max(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.min(SCREEN_WIDTH, SCREEN_HEIGHT),
+    height: orientation === 'landscape' ? Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.max(SCREEN_WIDTH, SCREEN_HEIGHT),
+  };
+};
+
 const shuffleArray = (array) => {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -59,6 +72,7 @@ const GameScreen = ({ route, navigation }) => {
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
   const [gameStarted, setGameStarted] = useState(false);
+  const [dimensions, setDimensions] = useState(getDimensions());
 
   // Refs
   const timerRef = useRef(null);
@@ -669,9 +683,31 @@ const GameScreen = ({ route, navigation }) => {
     transform: [{ scale: timerPulse.value }],
   }));
 
-  // Show countdown screen
+  // Add dimension change listener
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions(getDimensions());
+    };
+
+    const dimensionsHandler = Dimensions.addEventListener('change', updateDimensions);
+
+    return () => {
+      dimensionsHandler.remove();
+    };
+  }, []);
+
+  // Update the countdown screen render
   if (isCountingDown) {
     console.log('Rendering countdown screen');
+    const isLandscape = getOrientation() === 'landscape';
+    const countdownFontSize = isLandscape 
+      ? countdownText === 'Place on Forehead' 
+        ? dimensions.height * 0.12 
+        : dimensions.height * 0.2
+      : countdownText === 'Place on Forehead' 
+        ? 48 
+        : 72;
+
     return (
       <View style={styles.container}>
         <StatusBar hidden />
@@ -684,12 +720,86 @@ const GameScreen = ({ route, navigation }) => {
               styles.countdownText,
               countdownAnimatedStyle,
               {
-                fontSize: countdownText === 'Place on Forehead' ? 48 : 72,
+                fontSize: countdownFontSize,
+                maxWidth: dimensions.width * 0.9,
+                textAlign: 'center',
               }
             ]}
           >
             {countdownText}
           </Animated.Text>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // Update the main game screen render
+  if (isPlaying && !gameEnded) {
+    const isLandscape = getOrientation() === 'landscape';
+    const wordFontSize = isLandscape ? dimensions.height * 0.15 : 64;
+    const timerFontSize = isLandscape ? dimensions.height * 0.08 : 32;
+
+    return (
+      <View style={{ flex: 1 }}>
+        <StatusBar hidden />
+        <LinearGradient
+          colors={COLORS.gradient.primary}
+          style={styles.container}
+        >
+          <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
+            <TouchableOpacity 
+              style={[styles.exitButton, { 
+                top: isLandscape ? dimensions.height * 0.05 : 20,
+                left: isLandscape ? dimensions.width * 0.02 : 20,
+              }]} 
+              onPress={() => handleButtonPress('exit', endGame)}
+            >
+              <Text style={[styles.exitButtonText, { 
+                fontSize: isLandscape ? dimensions.height * 0.06 : 24 
+              }]}>✕</Text>
+            </TouchableOpacity>
+          </Animated.View>
+          
+          <Animated.View style={[styles.wordContainer, wordStyle, {
+            paddingHorizontal: isLandscape ? dimensions.width * 0.1 : SIZES.padding * 2,
+          }]}>
+            <Text style={[styles.wordText, { 
+              fontSize: wordFontSize,
+              maxWidth: dimensions.width * 0.8,
+            }]}>{items[currentIndex]}</Text>
+            
+            <Animated.View style={[styles.particlesContainer, particlesStyle]}>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>🎉</Text>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>✨</Text>
+              <Text style={[styles.particleText, { 
+                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
+              }]}>🎊</Text>
+            </Animated.View>
+          </Animated.View>
+
+          <Animated.View style={[styles.gameFooter, gameFooterStyle, {
+            bottom: isLandscape ? dimensions.height * 0.1 : 40,
+            paddingHorizontal: isLandscape ? dimensions.width * 0.05 : SIZES.padding * 2,
+          }]}>
+            <Animated.Text style={[styles.timer, timerStyle, { fontSize: timerFontSize }]}>
+              {formatTime(timeLeft)}
+            </Animated.Text>
+            <Animated.Text style={[styles.score, scoreTextStyle, { fontSize: timerFontSize }]}>
+              Score: {score.correct}
+            </Animated.Text>
+          </Animated.View>
+
+          <Animated.View style={overlayStyle}>
+            <View style={styles.feedbackContainer}>
+              <Text style={[styles.overlayFeedbackText, { 
+                fontSize: isLandscape ? dimensions.height * 0.15 : 64 
+              }]}>{feedbackText}</Text>
+            </View>
+          </Animated.View>
         </LinearGradient>
       </View>
     );
@@ -854,8 +964,6 @@ const styles = StyleSheet.create({
   },
   exitButton: {
     position: 'absolute',
-    top: 20,
-    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -1002,7 +1110,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: SIZES.padding * 2,
   },
   summaryWordText: {
     ...FONTS.body,
