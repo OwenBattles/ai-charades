@@ -32,7 +32,7 @@ const shuffleArray = (array) => {
 };
 
 const TimeSelectScreen = ({ route, navigation }) => {
-  const { onComplete, defaultTime = 60, category, isCustomCategory = false } = route.params;
+  const { defaultTime = 60, category, isCustomCategory = false } = route.params;
   const [selectedTime, setSelectedTime] = useState(defaultTime);
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -64,6 +64,7 @@ const TimeSelectScreen = ({ route, navigation }) => {
   };
   
   const handleStart = async () => {
+    console.log('handleStart', isCustomCategory, category);
     if (isCustomCategory && category) {
       // For custom categories, call API and show generating animation
       setIsGenerating(true);
@@ -108,8 +109,11 @@ const TimeSelectScreen = ({ route, navigation }) => {
         setIsGenerating(false);
       }
     } else {
-      // For default categories, just call the callback
-      onComplete(selectedTime);
+      // For default categories, navigate to Game screen
+      navigation.navigate('Game', {
+        category: category,
+        timeLimit: selectedTime,
+      });
     }
   };
   

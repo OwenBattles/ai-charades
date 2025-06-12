@@ -158,11 +158,7 @@ const HomeScreen = ({ navigation }) => {
       navigation.navigate('TimeSelect', {
         defaultTime: 60,
         category: category.trim(),
-        isCustomCategory: true,
-        onComplete: (selectedTime) => {
-          console.log('Time selected for default category flow:', selectedTime);
-          // This won't be called for custom categories since they navigate directly to Game
-        }
+        isCustomCategory: true
       });
     } else {
       console.log('No category entered, not showing time select');
@@ -219,8 +215,10 @@ const HomeScreen = ({ navigation }) => {
                   ]}
                   onPress={() => handleButtonPress(() => {
                     if (category) {
+                      console.log('handleButtonPress', category);
                       navigation.navigate('TimeSelect', {
                         onComplete: (time) => {
+                          console.log('handleButtonPress', category);
                           setIsGenerating(true);
                           generateCustomDeck(category, time);
                         },

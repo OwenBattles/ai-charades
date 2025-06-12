@@ -268,14 +268,9 @@ const SavedDecksScreen = ({ navigation }) => {
     }, 200);
 
     navigation.navigate('TimeSelect', {
-      onComplete: (time) => {
-        navigation.navigate('Game', {
-          items: shuffleArray(savedDecks[deckName]),
-          category: deckName,
-          timeLimit: time,
-        });
-      },
       defaultTime: selectedTime,
+      category: deckName,
+      isCustomCategory: false
     });
   };
 
