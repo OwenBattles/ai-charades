@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -95,6 +96,16 @@ const SavedDecksScreen = ({ navigation }) => {
   // Load saved decks on mount
   useEffect(() => {
     loadSavedDecks();
+  }, []);
+
+  // Add portrait lock effect
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      );
+    };
+    lockOrientation();
   }, []);
 
   const loadSavedDecks = async () => {

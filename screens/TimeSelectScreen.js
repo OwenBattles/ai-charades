@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import TimeSlider from '../components/TimeSlider';
 import LoadingDeck from '../components/LoadingDeck';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -150,6 +151,16 @@ const TimeSelectScreen = ({ route, navigation }) => {
       sliderScale.value = withSpring(1, { damping: 12, stiffness: 100 });
       buttonScale.value = withSpring(1, { damping: 12, stiffness: 100 });
     }, 100);
+  }, []);
+
+  // Add portrait lock effect
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      );
+    };
+    lockOrientation();
   }, []);
 
   if (isGenerating) {

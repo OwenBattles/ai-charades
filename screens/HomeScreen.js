@@ -23,6 +23,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Logo from '../components/Logo';
 import TimeSlider from '../components/TimeSlider';
@@ -139,6 +140,16 @@ const HomeScreen = ({ navigation }) => {
     const unsubscribe = navigation.addListener('focus', resetHomeScreen);
     return unsubscribe;
   }, [navigation]);
+
+  // Add portrait lock effect
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      );
+    };
+    lockOrientation();
+  }, []);
 
   const handleCustomCategorySubmit = () => {
     console.log('handleCustomCategorySubmit called with category:', category);

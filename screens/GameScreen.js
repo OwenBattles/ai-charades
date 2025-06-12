@@ -771,13 +771,13 @@ const GameScreen = ({ route, navigation }) => {
             <Animated.View style={[styles.particlesContainer, particlesStyle]}>
               <Text style={[styles.particleText, { 
                 fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>🎉</Text>
+              }]}></Text>
               <Text style={[styles.particleText, { 
                 fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>✨</Text>
+              }]}></Text>
               <Text style={[styles.particleText, { 
                 fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}>🎊</Text>
+              }]}></Text>
             </Animated.View>
           </Animated.View>
 
