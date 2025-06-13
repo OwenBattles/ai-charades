@@ -52,7 +52,6 @@ const HomeScreen = ({ navigation }) => {
     logoScale.value = 1;
     logoTranslateY.value = 0;
     inputTranslateX.value = 0;
-    buttonRotateZ.value = 0;
   };
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -94,12 +93,7 @@ const HomeScreen = ({ navigation }) => {
       withSpring(1.1, { damping: 4, stiffness: 400 }),
       withSpring(1, { damping: 6, stiffness: 400 })
     );
-    
-    buttonRotateZ.value = withSequence(
-      withSpring(-0.1, { damping: 4, stiffness: 400 }),
-      withSpring(0.1, { damping: 4, stiffness: 400 }),
-      withSpring(0, { damping: 6, stiffness: 400 })
-    );
+
     
     // Add haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -126,7 +120,6 @@ const HomeScreen = ({ navigation }) => {
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: buttonScale.value },
-      { rotateZ: `${buttonRotateZ.value}rad` }
     ],
   }));
 
@@ -217,11 +210,9 @@ const HomeScreen = ({ navigation }) => {
                     if (category) {
                       console.log('handleButtonPress', category);
                       navigation.navigate('TimeSelect', {
-                        onComplete: (time) => {
-                          console.log('handleButtonPress', category);
-                          setIsGenerating(true);
-                          generateCustomDeck(category, time);
-                        },
+                        defaultTime: 60,
+                        category: category.trim(),
+                        isCustomCategory: true
                       });
                     }
                   })}

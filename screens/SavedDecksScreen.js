@@ -270,7 +270,8 @@ const SavedDecksScreen = ({ navigation }) => {
     navigation.navigate('TimeSelect', {
       defaultTime: selectedTime,
       category: deckName,
-      isCustomCategory: false
+      isCustomCategory: false,
+      items: savedDecks[deckName]
     });
   };
 
