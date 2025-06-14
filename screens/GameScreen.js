@@ -36,19 +36,6 @@ const TILT_THRESHOLD = 0.7; // Decreased threshold for more sensitivity
 const DEBOUNCE_TIME = 1000; // ms
 const COUNTDOWN_DURATION = 1000;
 
-// Add orientation-aware dimensions
-const getOrientation = () => {
-  return SCREEN_WIDTH > SCREEN_HEIGHT ? 'landscape' : 'portrait';
-};
-
-const getDimensions = () => {
-  const orientation = getOrientation();
-  return {
-    width: orientation === 'landscape' ? Math.max(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.min(SCREEN_WIDTH, SCREEN_HEIGHT),
-    height: orientation === 'landscape' ? Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) : Math.max(SCREEN_WIDTH, SCREEN_HEIGHT),
-  };
-};
-
 const shuffleArray = (array) => {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -72,7 +59,6 @@ const GameScreen = ({ route, navigation }) => {
   const [feedbackColor, setFeedbackColor] = useState('#4CAF50');
   const [accelerometerData, setAccelerometerData] = useState({ x: 0, y: 0, z: 0 });
   const [gameStarted, setGameStarted] = useState(false);
-  const [dimensions, setDimensions] = useState(getDimensions());
 
   // Refs
   const timerRef = useRef(null);
@@ -108,16 +94,27 @@ const GameScreen = ({ route, navigation }) => {
   const scoreTextRotate = useSharedValue(0);
   const timerPulse = useSharedValue(1);
 
-  // Initialize game state
+  // Lock screen orientation based on game state
   useEffect(() => {
-    setTimeLeft(timeLimit);
-    setCurrentIndex(0);
-    setScore({ correct: 0, skipped: 0 });
-    setGameEnded(false);
-    setIsPlaying(false);
-    setIsCountingDown(false);
-    setGameStarted(false);
-  }, [timeLimit]);
+    const lockOrientation = async () => {
+      try {
+        if (isPlaying && !gameEnded) {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+        } else {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        }
+      } catch (error) {
+        console.error('Error locking orientation:', error);
+      }
+    };
+
+    lockOrientation();
+
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP)
+        .catch(error => console.error('Error resetting orientation:', error));
+    };
+  }, [isPlaying, gameEnded]);
 
   // Process items
   useEffect(() => {
@@ -125,6 +122,29 @@ const GameScreen = ({ route, navigation }) => {
       setProcessedItems(items.map(item => ({ text: item, status: 'pending' })));
     }
   }, [items]);
+
+  // Initialize game state
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeGame = async () => {
+      try {
+        if (isMounted) {
+          setTimeLeft(timeLimit);
+          setCurrentIndex(0);
+          setScore({ correct: 0, skipped: 0 });
+          setGameEnded(false);
+          setIsPlaying(false);
+          setIsCountingDown(false);
+          setGameStarted(false);
+        }
+      } catch (error) {
+        console.error('Error initializing game:', error);
+      }
+    };
+
+    initializeGame();
+  }, [timeLimit]);
 
   // Timer effect
   useEffect(() => {
@@ -146,21 +166,6 @@ const GameScreen = ({ route, navigation }) => {
       }
     };
   }, [isPlaying, gameEnded]);
-
-  useEffect(() => {
-    const setupOrientation = async () => {
-      if (isPlaying || isCountingDown) {
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.LANDSCAPE
-        );
-      } else {
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.PORTRAIT_UP
-        );
-      }
-    };
-    setupOrientation();
-  }, [isPlaying, isCountingDown]);
 
   useEffect(() => {
     const startAccelerometer = async () => {
@@ -210,121 +215,120 @@ const GameScreen = ({ route, navigation }) => {
   }, [isPlaying]);
 
   const startCountdown = async () => {
-    console.log('startCountdown called');
-    setIsCountingDown(true);
-    setGameStarted(true);
-    
-    // Initial haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Wait for state to update
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
-    
-    for (let i = 0; i < countdownSteps.length; i++) {
-      setCountdownText(countdownSteps[i]);
-      console.log('Setting countdown text to:', countdownSteps[i]);
+    try {
+      console.log('startCountdown called');
+      setIsCountingDown(true);
+      setGameStarted(true);
       
-      // Reset animation values
-      countdownScale.value = 0;
-      countdownOpacity.value = 0;
-      countdownRotate.value = -180;
+      // Wait for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Entrance animation sequence
-      countdownOpacity.value = withTiming(1, { duration: 200 });
-      countdownScale.value = withSequence(
-        withSpring(1.4, {
-          damping: 12,
-          stiffness: 100,
-          mass: 1,
-          velocity: 20
-        }),
-        withSpring(1, {
-          damping: 8,
-          stiffness: 100
-        })
-      );
-      countdownRotate.value = withSpring(0, {
-        damping: 10,
-        stiffness: 80,
-        mass: 0.8
-      });
+      const countdownSteps = ['Place on Forehead', '3', '2', '1', 'Go!'];
       
-      // Add bounce effect for numbers
-      if (i > 0 && i < countdownSteps.length - 1) {
-        setTimeout(() => {
+      for (let i = 0; i < countdownSteps.length; i++) {
+        setCountdownText(countdownSteps[i]);
+        console.log('Setting countdown text to:', countdownSteps[i]);
+        
+        // Reset animation values
+        countdownScale.value = 0;
+        countdownOpacity.value = 0;
+        countdownRotate.value = -180;
+        
+        // Entrance animation sequence
+        countdownOpacity.value = withTiming(1, { duration: 200 });
+        countdownScale.value = withSequence(
+          withSpring(1.4, {
+            damping: 12,
+            stiffness: 100,
+            mass: 1,
+            velocity: 20
+          }),
+          withSpring(1, {
+            damping: 8,
+            stiffness: 100
+          })
+        );
+        countdownRotate.value = withSpring(0, {
+          damping: 10,
+          stiffness: 80,
+          mass: 0.8
+        });
+        
+        // Add bounce effect for numbers
+        if (i > 0 && i < countdownSteps.length - 1) {
+          setTimeout(() => {
+            countdownScale.value = withSequence(
+              withSpring(1.2, { damping: 4, stiffness: 200 }),
+              withSpring(0.8, { damping: 4, stiffness: 200 }),
+              withSpring(1, { damping: 6, stiffness: 200 })
+            );
+          }, 300);
+        }
+        
+        // Special animation for "Go!"
+        if (i === countdownSteps.length - 1) {
           countdownScale.value = withSequence(
-            withSpring(1.2, { damping: 4, stiffness: 200 }),
-            withSpring(0.8, { damping: 4, stiffness: 200 }),
-            withSpring(1, { damping: 6, stiffness: 200 })
+            withSpring(1.6, { damping: 3, stiffness: 150 }),
+            withSpring(1, { damping: 8, stiffness: 100 })
           );
-        }, 300);
+          countdownRotate.value = withSequence(
+            withSpring(0, { damping: 12, stiffness: 100 })
+          );
+        }
+        
+        // Enhanced haptic feedback
+        if (i === 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else if (i === countdownSteps.length - 1) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setTimeout(() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          }, 100);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        
+        // Wait between steps with varying durations
+        await new Promise(resolve => setTimeout(resolve, i === 0 ? 2000 : 1000));
+        
+        // Exit animation
+        if (i < countdownSteps.length - 1) {
+          countdownOpacity.value = withTiming(0, { 
+            duration: 300,
+            easing: Easing.out(Easing.cubic)
+          });
+          countdownScale.value = withSpring(0.5, {
+            damping: 12,
+            stiffness: 100
+          });
+          countdownRotate.value = withSpring(180, {
+            damping: 8,
+            stiffness: 80
+          });
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          // Final exit animation
+          countdownScale.value = withSequence(
+            withSpring(1.8, { damping: 4, stiffness: 100 }),
+            withSpring(0, { damping: 8, stiffness: 100 })
+          );
+          countdownOpacity.value = withTiming(0, {
+            duration: 400,
+            easing: Easing.out(Easing.cubic)
+          });
+          countdownRotate.value = withSpring(720, {
+            damping: 5,
+            stiffness: 50
+          });
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
       }
       
-      // Special animation for "Go!"
-      if (i === countdownSteps.length - 1) {
-        countdownScale.value = withSequence(
-          withSpring(1.6, { damping: 3, stiffness: 150 }),
-          withSpring(1, { damping: 8, stiffness: 100 })
-        );
-        countdownRotate.value = withSequence(
-          withSpring(360, { damping: 10, stiffness: 50 }),
-          withSpring(0, { damping: 12, stiffness: 100 })
-        );
-      }
-      
-      // Enhanced haptic feedback
-      if (i === 0) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else if (i === countdownSteps.length - 1) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setTimeout(() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        }, 100);
-      } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      
-      // Wait between steps with varying durations
-      await new Promise(resolve => setTimeout(resolve, i === 0 ? 2000 : 1000));
-      
-      // Exit animation
-      if (i < countdownSteps.length - 1) {
-        countdownOpacity.value = withTiming(0, { 
-          duration: 300,
-          easing: Easing.out(Easing.cubic)
-        });
-        countdownScale.value = withSpring(0.5, {
-          damping: 12,
-          stiffness: 100
-        });
-        countdownRotate.value = withSpring(180, {
-          damping: 8,
-          stiffness: 80
-        });
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } else {
-        // Final exit animation
-        countdownScale.value = withSequence(
-          withSpring(1.8, { damping: 4, stiffness: 100 }),
-          withSpring(0, { damping: 8, stiffness: 100 })
-        );
-        countdownOpacity.value = withTiming(0, {
-          duration: 400,
-          easing: Easing.out(Easing.cubic)
-        });
-        countdownRotate.value = withSpring(720, {
-          damping: 5,
-          stiffness: 50
-        });
-        await new Promise(resolve => setTimeout(resolve, 400));
-      }
+      setIsCountingDown(false);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Error in startCountdown:', error);
     }
-    
-    console.log('Countdown finished, starting game');
-    setIsCountingDown(false);
-    setIsPlaying(true);
   };
 
   const handleCorrect = () => {
@@ -474,31 +478,35 @@ const GameScreen = ({ route, navigation }) => {
     }
   };
 
-  const startGame = () => {
-    console.log('startGame called');
-    startCountdown();
+  const startGame = async () => {
+    try {
+      // Lock to landscape before starting the game
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+      startCountdown();
+    } catch (error) {
+      console.error('Error starting game:', error);
+    }
   };
 
   const endGame = async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
+    try {
+      // Stop accelerometer
+      Accelerometer.removeAllListeners();
+      setGameEnded(true);
+      
+      // Reset to portrait before navigating
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+
+      // Navigate to Result screen with items included
+      navigation.navigate('Result', {
+        items: processedItems,
+        category,
+        timeLimit,
+        score,
+      });
+    } catch (error) {
+      console.error('Error ending game:', error);
     }
-    
-    Accelerometer.removeAllListeners();
-    setGameEnded(true);
-    
-    // Reset orientation to portrait and wait for it to complete before navigating
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-
-    // Small delay to ensure orientation change is complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Navigate to ResultScreen with items included
-    navigation.navigate('Result', {
-      score: score,
-      category: category,
-      items: items
-    });
   };
 
   const wordStyle = useAnimatedStyle(() => ({
@@ -683,30 +691,10 @@ const GameScreen = ({ route, navigation }) => {
     transform: [{ scale: timerPulse.value }],
   }));
 
-  // Add dimension change listener
-  useEffect(() => {
-    const updateDimensions = () => {
-      setDimensions(getDimensions());
-    };
-
-    const dimensionsHandler = Dimensions.addEventListener('change', updateDimensions);
-
-    return () => {
-      dimensionsHandler.remove();
-    };
-  }, []);
-
   // Update the countdown screen render
   if (isCountingDown) {
     console.log('Rendering countdown screen');
-    const isLandscape = getOrientation() === 'landscape';
-    const countdownFontSize = isLandscape 
-      ? countdownText === 'Place on Forehead' 
-        ? dimensions.height * 0.12 
-        : dimensions.height * 0.2
-      : countdownText === 'Place on Forehead' 
-        ? 48 
-        : 72;
+    const countdownFontSize = 72;
 
     return (
       <View style={styles.container}>
@@ -721,8 +709,10 @@ const GameScreen = ({ route, navigation }) => {
               countdownAnimatedStyle,
               {
                 fontSize: countdownFontSize,
-                maxWidth: dimensions.width * 0.9,
+                maxWidth: SCREEN_WIDTH * 0.9,
                 textAlign: 'center',
+                writingDirection: 'ltr',
+                transform: [{ rotate: '0deg' }]
               }
             ]}
           >
@@ -735,12 +725,11 @@ const GameScreen = ({ route, navigation }) => {
 
   // Update the main game screen render
   if (isPlaying && !gameEnded) {
-    const isLandscape = getOrientation() === 'landscape';
-    const wordFontSize = isLandscape ? dimensions.height * 0.15 : 64;
-    const timerFontSize = isLandscape ? dimensions.height * 0.08 : 32;
+    const wordFontSize = 64;
+    const timerFontSize = 32;
 
     return (
-      <View style={{ flex: 1 }}>
+      <View style={styles.container}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -749,57 +738,57 @@ const GameScreen = ({ route, navigation }) => {
           <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
             <TouchableOpacity 
               style={[styles.exitButton, { 
-                top: isLandscape ? dimensions.height * 0.05 : 20,
-                left: isLandscape ? dimensions.width * 0.02 : 20,
+                top: 20,
+                left: 20,
               }]} 
               onPress={() => handleButtonPress('exit', endGame)}
             >
               <Text style={[styles.exitButtonText, { 
-                fontSize: isLandscape ? dimensions.height * 0.06 : 24 
+                fontSize: 24,
+                writingDirection: 'ltr',
+                transform: [{ rotate: '0deg' }]
               }]}>✕</Text>
             </TouchableOpacity>
           </Animated.View>
           
-          <Animated.View style={[styles.wordContainer, wordStyle, {
-            paddingHorizontal: isLandscape ? dimensions.width * 0.1 : SIZES.padding * 2,
-          }]}>
-            <Text style={[styles.wordText, { 
-              fontSize: wordFontSize,
-              maxWidth: dimensions.width * 0.8,
-            }]}>{items[currentIndex]}</Text>
-            
-            <Animated.View style={[styles.particlesContainer, particlesStyle]}>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}></Text>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}></Text>
-              <Text style={[styles.particleText, { 
-                fontSize: isLandscape ? dimensions.height * 0.12 : 48 
-              }]}></Text>
+          <View style={[
+            styles.gameContent,
+            {
+              padding: SIZES.padding,
+            }
+          ]}>
+            <Animated.View style={[styles.wordContainer, wordStyle, {
+              paddingHorizontal: SIZES.padding * 2,
+            }]}>
+              <Text style={[styles.wordText, { 
+                fontSize: wordFontSize,
+                maxWidth: SCREEN_WIDTH * 0.8,
+                textAlign: 'center',
+                writingDirection: 'ltr',
+                transform: [{ rotate: '0deg' }]
+              }]}>{items[currentIndex]}</Text>
             </Animated.View>
-          </Animated.View>
 
-          <Animated.View style={[styles.gameFooter, gameFooterStyle, {
-            bottom: isLandscape ? dimensions.height * 0.1 : 40,
-            paddingHorizontal: isLandscape ? dimensions.width * 0.05 : SIZES.padding * 2,
-          }]}>
-            <Animated.Text style={[styles.timer, timerStyle, { fontSize: timerFontSize }]}>
-              {formatTime(timeLeft)}
-            </Animated.Text>
-            <Animated.Text style={[styles.score, scoreTextStyle, { fontSize: timerFontSize }]}>
-              Score: {score.correct}
-            </Animated.Text>
-          </Animated.View>
-
-          <Animated.View style={overlayStyle}>
-            <View style={styles.feedbackContainer}>
-              <Text style={[styles.overlayFeedbackText, { 
-                fontSize: isLandscape ? dimensions.height * 0.15 : 64 
-              }]}>{feedbackText}</Text>
+            <View style={[
+              styles.gameControls,
+              {
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: SIZES.padding,
+              }
+            ]}>
+              <Animated.Text style={[styles.timerText, {
+                fontSize: timerFontSize,
+                writingDirection: 'ltr',
+                transform: [{ rotate: '0deg' }]
+              }]}>
+                {formatTime(timeLeft)}
+              </Animated.Text>
             </View>
-          </Animated.View>
+          </View>
+
+          <Animated.View style={[styles.feedbackOverlay, overlayStyle]} />
         </LinearGradient>
       </View>
     );
@@ -808,8 +797,9 @@ const GameScreen = ({ route, navigation }) => {
   // Show pre-game screen
   if (!gameStarted) {
     console.log('Rendering pre-game screen');
+    
     return (
-      <View style={{ flex: 1 }}>
+      <View style={styles.container}>
         <StatusBar hidden />
         <LinearGradient
           colors={COLORS.gradient.primary}
@@ -817,26 +807,52 @@ const GameScreen = ({ route, navigation }) => {
         >
           <Animated.View style={[styles.exitButtonContainer, exitButtonStyle]}>
             <TouchableOpacity 
-              style={styles.exitButton} 
+              style={[styles.exitButton, {
+                top: 20,
+                left: 20,
+              }]} 
               onPress={() => handleButtonPress('exit', () => navigation.navigate('Home'))}
             >
-              <Text style={styles.exitButtonText}>✕</Text>
+              <Text style={[styles.exitButtonText, {
+                fontSize: 24,
+                writingDirection: 'ltr',
+                transform: [{ rotate: '0deg' }]
+              }]}>✕</Text>
             </TouchableOpacity>
           </Animated.View>
           
-          <View style={styles.preGameContent}>
-            <Animated.Text style={[styles.category, categoryStyle]}>
+          <View style={[
+            styles.preGameContent,
+            {
+              padding: SIZES.padding,
+            }
+          ]}>
+            <Animated.Text style={[styles.category, categoryStyle, {
+              fontSize: 36,
+              writingDirection: 'ltr',
+              transform: [{ rotate: '0deg' }]
+            }]}>
               {category}
             </Animated.Text>
-            <Animated.Text style={[styles.timeText, timeTextStyle]}>
+            <Animated.Text style={[styles.timeText, timeTextStyle, {
+              fontSize: 32,
+              writingDirection: 'ltr',
+              transform: [{ rotate: '0deg' }]
+            }]}>
               {formatTime(timeLimit)}
             </Animated.Text>
             <Animated.View style={startButtonStyle}>
               <TouchableOpacity 
-                style={styles.startButton} 
+                style={[styles.startButton, {
+                  padding: SIZES.padding * 2,
+                }]} 
                 onPress={() => handleButtonPress('start', startGame)}
               >
-                <Text style={styles.startButtonText}>Start</Text>
+                <Text style={[styles.startButtonText, {
+                  fontSize: 32,
+                  writingDirection: 'ltr',
+                  transform: [{ rotate: '0deg' }]
+                }]}>Start</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
@@ -1204,6 +1220,38 @@ const styles = StyleSheet.create({
     top: 20,
     left: 20,
     zIndex: 10,
+  },
+  gameContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gameControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timerText: {
+    ...FONTS.title,
+    color: COLORS.text,
+    fontSize: 32,
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scoreText: {
+    ...FONTS.title,
+    color: COLORS.text,
+    fontSize: 32,
+  },
+  feedbackOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
 });
 
